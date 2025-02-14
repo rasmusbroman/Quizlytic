@@ -10,8 +10,15 @@ namespace Quizlytic.API
             // Add services to the container.
             builder.Services.AddAuthorization();
 
+            //TEMP
+            builder.Services.AddEndpointsApiExplorer();
+
+
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
+
+            builder.Services.AddSwaggerGen();
+
 
             var app = builder.Build();
 
@@ -19,11 +26,19 @@ namespace Quizlytic.API
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
+                app.UseSwagger();
+                app.UseSwaggerUI();
             }
 
             app.UseHttpsRedirection();
 
             app.UseAuthorization();
+
+            //TEMP
+            app.MapGet("/", () => "Hello from Quizlytic API!")
+                .WithName("GetRoot")
+                .WithOpenApi();
+
 
             var summaries = new[]
             {
