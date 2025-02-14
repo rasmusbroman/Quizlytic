@@ -1,0 +1,6 @@
+@Quizlytic.API_HostAddress = http://localhost:5081
+
+GET {{Quizlytic.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
