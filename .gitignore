@@ -1,94 +1,104 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Development configuration
+**/appsettings.Development.json
+**/launchSettings.json
+*.Development.json
+*.signalr.json
 
-# Project specific add later?
-# /src/Quizlytic.API/appsettings.*.json
-# !/src/Quizlytic.API/appsettings.json
-# !/src/Quizlytic.API/appsettings.Example.json
+# Environment files
+**/.env
+**/.env*.local
+!**/.env.example
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
+### Backend (.NET) ###
+# Build outputs
+**/[Bb]in/
+**/[Oo]bj/
+**/[Dd]ebug/
+**/[Rr]elease/
+**/[Bb]uild/
+**/[Oo]ut/
+**/x64/
+**/x86/
+**/bld/
+
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.ncrunch*
+*.[Pp]ublish.xml
+*.azurePubxml
+*.pubxml
+*.publishproj
+
+# Database
+**/pgdata/
+**/*.pgdump
+**/*.sqlite
+**/*.sqlite3
+**/*.db
+
+### Frontend (Next.js) ###
+# Build and development
+**/.next/
+**/out/
+**/build/
+**/coverage/
+**/next-env.d.ts
+**/.vercel/
+
+# Dependencies
+**/node_modules/
+**/.pnp
+**/.pnp.js
+**/yarn.lock
+**/package-lock.json
+
+# Debug logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.pnpm-debug.log*
 
 # Package managers
-.yarn/*
-!.yarn/cache
-!.yarn/unplugged
-!.yarn/patches
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
-.pnp.*
-yarn-error.log
+**/.yarn/*
+!**/.yarn/cache
+!**/.yarn/patches
+!**/.yarn/plugins
+!**/.yarn/releases
+!**/.yarn/sdks
+!**/.yarn/versions
+**/.pnp.*
 
-# testing
-/coverage
-
-# Prisma
-/prisma/db.sqlite
-/prisma/db.sqlite-journal
-
-# PostgreSQL
-*.pgdump
-pgdata/
-
-# next.js
-/.next/
-/out/
-next-env.d.ts
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# local env files
-.env
-.env*.local
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-
-/prisma/migrations
-/prisma/migrations-lock.toml
-
-# OS X
-.DS_Store
-.AppleDouble
-.LSOverride
-Icon
-.Spotlight-V100
-.Trashes
-._*
-
-# Linux
+### General development files ###
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
 *~
-
-# Windows
+*.tmp
+.DS_Store
 Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-*.cab
-*.msi
-*.msm
-*.msp
 
-# Packages
+# Logs and temporary files
+logs/
+*.log
+.tmp/
+temp/
+
+# Compiled source
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# Packages and archives
 *.7z
-*.csv
-*.dat
 *.dmg
 *.gz
 *.iso
@@ -96,80 +106,11 @@ $RECYCLE.BIN/
 *.rar
 *.tar
 *.zip
-*.com
-*.class
-*.dll
-*.exe
-*.o
-*.seed
-*.so
-*.swo
-*.swp
-*.swn
-*.swm
-*.out
-*.pid
 
-# Logs and databases
-.tmp
-*.log
-*.sql
-*.sqlite
-*.sqlite3
+# Upload directories
+**/public/uploads/*
+!**/public/uploads/.gitkeep
 
-# Misc.
-*#
-ssl
-.idea
-nbproject
-public/uploads/*
-!public/uploads/.gitkeep
-.tsbuildinfo
+# TypeScript
+*.tsbuildinfo
 .eslintcache
-obj
-bin
-
-# Node.js
-lib-cov
-lcov.info
-pids
-logs
-results
-node_modules
-.node_history
-
-# .NET
-*.suo
-*.user
-*.userosscache
-*.sln.docstates
-[Dd]ebug/
-[Dd]ebugPublic/
-[Rr]elease/
-[Rr]eleases/
-x64/
-x86/
-build/
-bld/
-[Bb]in/
-[Oo]bj/
-[Oo]ut/
-msbuild.log
-msbuild.err
-msbuild.wrn
-
-# Visual Studio
-.vs/
-*.ncrunch*
-*.[Pp]ublish.xml
-*.azurePubxml
-*.pubxml
-*.publishproj
-
-# Development environment
-*.Development.json
-appsettings.Development.json
-launchSettings.json
-
-# SignalR
-*.signalr.json
