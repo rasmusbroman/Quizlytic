@@ -17,14 +17,13 @@ namespace Quizlytic.API
             //TEMP
             builder.Services.AddEndpointsApiExplorer();
 
-
             builder.Services.AddOpenApi();
 
             builder.Services.AddSwaggerGen();
             builder.Services.AddDbContext<QuizlyticDbContext>(options =>
             {
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
-            });                                         
+            });
 
             builder.Services.AddSignalR();
 
