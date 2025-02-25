@@ -14,7 +14,6 @@ namespace Quizlytic.API.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Database configurations go here
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(QuizlyticDbContext).Assembly);
         }
     }
