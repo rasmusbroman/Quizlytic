@@ -1,7 +1,8 @@
 # Development configuration
 **/appsettings.Development.json
-**/launchSettings.json
+# **/launchSettings.json
 *.Development.json
+!**/appsettings.Development.json.example
 *.signalr.json
 
 # Environment files
