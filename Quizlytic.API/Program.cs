@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Quizlytic.API.Data;
 using Quizlytic.API.Models;
+using Quizlytic.API.Hubs;
 
 namespace Quizlytic.API
 {
@@ -11,14 +12,12 @@ namespace Quizlytic.API
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
             builder.Services.AddAuthorization();
 
             //TEMP
             builder.Services.AddEndpointsApiExplorer();
 
 
-            // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
 
             builder.Services.AddSwaggerGen();
@@ -31,7 +30,6 @@ namespace Quizlytic.API
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
@@ -45,10 +43,10 @@ namespace Quizlytic.API
 
             //TEMP
             app.MapGet("/", () => "Test backend API");
-                //.WithName("GetRoot")
-                //.WithOpenApi();
+            //.WithName("GetRoot")
+            //.WithOpenApi();
 
-            //app.MapHub<QuizlyticHub>("/quizlyticHub");
+            app.MapHub<QuizHub>("/quizHub");
 
             app.Run();
         }
