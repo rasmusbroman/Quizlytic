@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Quizlytic.API.Data;
 using Quizlytic.API.Models;
 using Quizlytic.API.Hubs;
+using Quizlytic.API.Extensions;
 
 namespace Quizlytic.API
 {
@@ -18,11 +19,23 @@ namespace Quizlytic.API
             builder.Services.AddEndpointsApiExplorer();
 
             builder.Services.AddOpenApi();
-
             builder.Services.AddSwaggerGen();
             builder.Services.AddDbContext<QuizlyticDbContext>(options =>
             {
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+            });
+
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", policy =>
+                {
+                    policy
+                        //.WithOrigins("http://localhost:3000")
+                        //.AllowAnyOrigin()
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials();
+                });
             });
 
             builder.Services.AddSignalR();
@@ -36,8 +49,9 @@ namespace Quizlytic.API
                 app.UseSwaggerUI();
             }
 
+            app.UseCors("AllowAll");            
+            app.UseRouting();
             app.UseHttpsRedirection();
-
             app.UseAuthorization();
 
             //TEMP
@@ -45,6 +59,7 @@ namespace Quizlytic.API
             //.WithName("GetRoot")
             //.WithOpenApi();
 
+            app.MapQuizlyticEndpoints();
             app.MapHub<QuizHub>("/quizHub");
 
             app.Run();
