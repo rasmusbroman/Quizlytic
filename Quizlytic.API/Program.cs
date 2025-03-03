@@ -30,10 +30,12 @@ namespace Quizlytic.API
                 options.AddPolicy("AllowAll", policy =>
                 {
                     policy
-                        //.WithOrigins("http://localhost:3000")
+                        .WithOrigins("http://localhost:3000")
                         //.AllowAnyOrigin()
                         .AllowAnyHeader()
                         .AllowAnyMethod()
+                        .AllowCredentials()
+                        .SetIsOriginAllowed(_ => true)
                         .AllowCredentials();
                 });
             });

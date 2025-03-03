@@ -18,7 +18,7 @@ namespace Quizlytic.API.Hubs
             string groupName = $"quiz-{quizId}";
             await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
             await Groups.AddToGroupAsync(Context.ConnectionId, $"{groupName}-host");
-            await Clients.Group(groupName).SendAsync("HostJoined");
+            //await Clients.Group(groupName).SendAsync("HostJoined");
         }
 
         public async Task JoinAsParticipant(string pinCode, string participantName)
