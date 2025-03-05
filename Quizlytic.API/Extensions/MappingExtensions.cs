@@ -30,6 +30,7 @@ namespace Quizlytic.API.Extensions
                 quiz.PinCode,
                 quiz.QrCodeUrl,
                 quiz.Status,
+                quiz.HasCorrectAnswers,
                 quiz.Questions?.Select(q => q.ToDto()) ?? Enumerable.Empty<QuestionDto>()
             );
         }
@@ -62,6 +63,7 @@ namespace Quizlytic.API.Extensions
             {
                 Title = dto.Title,
                 Description = dto.Description,
+                HasCorrectAnswers = dto.HasCorrectAnswers,
                 CreatedAt = DateTime.UtcNow,
                 Status = QuizStatus.Created
             };

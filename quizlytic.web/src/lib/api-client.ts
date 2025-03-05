@@ -9,8 +9,16 @@ async function fetchJson<T>(
   const response = await fetch(input, init);
   
   if (!response.ok) {
-    const error = new Error(`API error: ${response.statusText}`);
-    throw error;
+    try {
+      const errorData = await response.json();
+      const error = new Error(`API error: ${response.statusText} - ${JSON.stringify(errorData)}`);
+      error.response = response;
+      throw error;
+    } catch {
+      const error = new Error(`API error: ${response.statusText}`);
+      error.response = response;
+      throw error;
+    }
   }
   
   return response.json() as Promise<T>;
@@ -63,7 +71,8 @@ export const questionApi = {
     quizId: number;
     text: string;
     imageUrl?: string;
-    type: 'SingleChoice' | 'MultipleChoice' | 'FreeText';
+    type: number;
+    answers?: { text: string; isCorrect: boolean }[];
   }): Promise<Question> => {
     return fetchJson<Question>(`${API_URL}/api/questions`, {
       method: 'POST',

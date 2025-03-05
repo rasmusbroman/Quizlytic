@@ -30,7 +30,7 @@ namespace Quizlytic.API.Data
 
             modelBuilder.Entity<Question>()
                 .HasMany(q => q.Answers)
-                .WithOne()
+                .WithOne(a => a.Question)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Question>()
@@ -38,6 +38,10 @@ namespace Quizlytic.API.Data
                 .WithOne(r => r.Question)
                 .HasForeignKey(r => r.QuestionId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Answer>()
+                .HasOne(a => a.Question)
+                .WithMany(q => q.Answers);
 
             modelBuilder.Entity<Participant>()
                 .HasMany(p => p.Responses)

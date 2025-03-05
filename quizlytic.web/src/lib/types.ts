@@ -6,9 +6,9 @@ export enum QuizStatus {
   }
   
   export enum QuestionType {
-    SingleChoice = 'SingleChoice',
-    MultipleChoice = 'MultipleChoice',
-    FreeText = 'FreeText'
+    SingleChoice = 0,
+    MultipleChoice = 1,
+    FreeText = 2
   }
   
   export interface Quiz {

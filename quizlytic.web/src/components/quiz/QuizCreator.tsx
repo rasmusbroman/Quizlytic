@@ -113,11 +113,14 @@ const QuizCreator: React.FC = () => {
 
     try {
       if (quizId) {
+        const validAnswers = currentQuestion.answers
+          .filter(answer => answer.text.trim() !== '');
         await questionApi.create({
           quizId,
           text: currentQuestion.text,
           imageUrl: currentQuestion.imageUrl || undefined,
-          type: currentQuestion.type
+          type: currentQuestion.type,
+          answers: validAnswers
         });
 
         setQuestions([...questions, currentQuestion]);

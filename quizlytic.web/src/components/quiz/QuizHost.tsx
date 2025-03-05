@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
-import { useQuizHost } from "../../lib/signalr-client";
-import { quizApi } from "../../lib/api-client";
-import { Quiz, Question, QuizStatus } from "@/lib/types";
+import { useQuizHost } from "@/lib/signalr-client";
+import { quizApi, resultApi } from "@/lib/api-client";
+import { Quiz, Question, QuizStatus, Answer } from "@/lib/types";
 import DateDisplay from "@/components/DateDisplay";
 
 interface QuizHostProps {
@@ -16,6 +16,9 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [questionResults, setQuestionResults] = useState<Record<number, any[]>>(
+    {}
+  );
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<
     number | null
   >(null);
@@ -55,6 +58,27 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
     loadQuiz();
   }, [quizId]);
 
+  useEffect(() => {
+    const loadResults = async (): Promise<void> => {
+      try {
+        const results = await resultApi.getByQuizId(quizId);
+
+        const resultsByQuestion: Record<number, any[]> = {};
+        results.questions.forEach((question: any) => {
+          resultsByQuestion[question.questionId] = question.answerDistribution;
+        });
+
+        setQuestionResults(resultsByQuestion);
+      } catch (err) {
+        console.error("Error loading results:", err);
+      }
+    };
+
+    if (quiz && quiz.status === QuizStatus.Completed) {
+      loadResults();
+    }
+  }, [quizId, quiz?.status]);
+
   const handleStartQuiz = async () => {
     if (!quiz) return;
 
@@ -93,6 +117,57 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
 
   const handleViewResults = () => {
     router.push(`/quizzes/${quizId}/results`);
+  };
+
+  const getAnswerCount = (results, answerId) => {
+    const result = results?.find((r) => r.answerId === answerId);
+    return result ? result.count : 0;
+  };
+
+  const getAnswerPercentage = (results, answerId) => {
+    const count = getAnswerCount(results, answerId);
+    const total = results?.reduce((sum, result) => sum + result.count, 0) || 0;
+    return total > 0 ? Math.round((count / total) * 100) : 0;
+  };
+
+  const renderQuestionResult = (question: Question): React.ReactNode => {
+    const results = questionResults[question.id] || [];
+
+    if (quiz?.hasCorrectAnswers) {
+      return (
+        <div className="space-y-1">
+          {question.answers.map((answer: Answer) => (
+            <div
+              key={answer.id}
+              className={`p-2 rounded ${
+                answer.isCorrect ? "bg-green-100 border border-green-300" : ""
+              }`}
+            >
+              <div className="flex justify-between">
+                <span>{answer.text}</span>
+                <span>{getAnswerCount(results, answer.id)} responses</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    } else {
+      return (
+        <div className="space-y-1">
+          {question.answers.map((answer: Answer) => (
+            <div key={answer.id} className="p-2">
+              <div className="flex justify-between">
+                <span>{answer.text}</span>
+                <span>
+                  {getAnswerCount(results, answer.id)} responses (
+                  {getAnswerPercentage(results, answer.id)}%)
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
   };
 
   if (isLoading) {
@@ -198,18 +273,20 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
                     className={`p-4 rounded-lg border ${
                       activeQuestion === question.id
                         ? "border-green-500 bg-green-50"
+                        : question.hasResponses
+                        ? "border-blue-500 bg-blue-50"
                         : "border-gray-200"
                     }`}
                   >
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start mb-2">
                       <div>
                         <h3 className="font-medium">
                           {index + 1}. {question.text}
                         </h3>
                         <p className="text-sm text-gray-500 mt-1">
-                          {question.type === "SingleChoice"
+                          {question.type === 0
                             ? "Ett rätt svar"
-                            : question.type === "MultipleChoice"
+                            : question.type === 1
                             ? "Flera rätta svar"
                             : "Fritext"}
                         </p>
@@ -234,6 +311,15 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
                         )}
                       </div>
                     </div>
+                    {question.hasResponses &&
+                      activeQuestion !== question.id && (
+                        <div className="mt-3 pt-3 border-t">
+                          <h4 className="font-medium text-sm mb-2">
+                            Resultat:
+                          </h4>
+                          {renderQuestionResult(question)}
+                        </div>
+                      )}
                   </div>
                 ))}
               </div>
