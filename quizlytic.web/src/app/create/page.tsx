@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { QuestionType } from "@/lib/types";
 import { quizApi, questionApi } from "@/lib/api-client";
@@ -8,19 +8,44 @@ import { quizApi, questionApi } from "@/lib/api-client";
 export default function CreateQuizPage() {
   const router = useRouter();
   const [quizTitle, setQuizTitle] = useState("");
+  const [quizDescription, setQuizDescription] = useState("");
+  const [hasCorrectAnswers, setHasCorrectAnswers] = useState(false);
   const [questions, setQuestions] = useState<
-    { id?: number; text: string; options: string[] }[]
-  >([{ text: "", options: ["", ""] }]);
+    {
+      text: string;
+      type: number;
+      options: { text: string; isCorrect: boolean }[];
+    }[]
+  >([
+    {
+      text: "",
+      type: 0,
+      options: [
+        { text: "", isCorrect: false },
+        { text: "", isCorrect: false },
+      ],
+    },
+  ]);
+
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [quizDescription, setQuizDescription] = useState("");
-  const [hasCorrectAnswers, setHasCorrectAnswers] = useState(true);
 
   const addOption = () => {
     const updatedQuestions = [...questions];
-    updatedQuestions[currentQuestion].options.push("");
+    updatedQuestions[currentQuestion].options.push({
+      text: "",
+      isCorrect: false,
+    });
     setQuestions(updatedQuestions);
+  };
+
+  const removeOption = (index: number) => {
+    const updatedQuestions = [...questions];
+    if (updatedQuestions[currentQuestion].options.length > 2) {
+      updatedQuestions[currentQuestion].options.splice(index, 1);
+      setQuestions(updatedQuestions);
+    }
   };
 
   const handleQuestionChange = (text: string) => {
@@ -29,14 +54,46 @@ export default function CreateQuizPage() {
     setQuestions(updatedQuestions);
   };
 
+  const handleQuestionTypeChange = (type: number) => {
+    const updatedQuestions = [...questions];
+    updatedQuestions[currentQuestion].type = type;
+    setQuestions(updatedQuestions);
+  };
+
   const handleOptionChange = (index: number, text: string) => {
     const updatedQuestions = [...questions];
-    updatedQuestions[currentQuestion].options[index] = text;
+    updatedQuestions[currentQuestion].options[index].text = text;
+    setQuestions(updatedQuestions);
+  };
+
+  const handleCorrectToggle = (index: number) => {
+    const updatedQuestions = [...questions];
+    const currentType = updatedQuestions[currentQuestion].type;
+
+    if (currentType === 0) {
+      updatedQuestions[currentQuestion].options.forEach((option) => {
+        option.isCorrect = false;
+      });
+      updatedQuestions[currentQuestion].options[index].isCorrect = true;
+    } else {
+      updatedQuestions[currentQuestion].options[index].isCorrect =
+        !updatedQuestions[currentQuestion].options[index].isCorrect;
+    }
     setQuestions(updatedQuestions);
   };
 
   const addQuestion = () => {
-    setQuestions([...questions, { text: "", options: ["", ""] }]);
+    setQuestions([
+      ...questions,
+      {
+        text: "",
+        type: 0,
+        options: [
+          { text: "", isCorrect: false },
+          { text: "", isCorrect: false },
+        ],
+      },
+    ]);
     setCurrentQuestion(questions.length);
   };
 
@@ -47,10 +104,9 @@ export default function CreateQuizPage() {
     }
 
     if (!questions[0].text.trim()) {
-      setError("Please add at least one question");
+      setError("Please add at least one question with text");
       return;
     }
-
     setIsLoading(true);
     setError("");
 
@@ -66,21 +122,25 @@ export default function CreateQuizPage() {
 
       for (const question of questions) {
         if (question.text.trim()) {
-          const validAnswers = question.options
-            .filter((option) => option.trim() !== "")
-            .map((option, index) => ({
-              text: option,
-              isCorrect: hasCorrectAnswers ? index === 0 : false 
-            }));
+          const validOptions = question.options.filter(
+            (option) => option.text.trim() !== ""
+          );
 
-          if (validAnswers.length === 0) continue;
+          if (validOptions.length === 0) continue;
+
+          if (
+            hasCorrectAnswers &&
+            !validOptions.some((option) => option.isCorrect)
+          ) {
+            validOptions[0].isCorrect = true;
+          }
 
           console.log("Adding question:", {
             quizId: quiz.id,
             text: question.text,
             imageUrl: "",
-            type: 0,
-            answers: validAnswers,
+            type: question.type,
+            answers: validOptions,
           });
 
           try {
@@ -88,24 +148,15 @@ export default function CreateQuizPage() {
               quizId: quiz.id,
               text: question.text,
               imageUrl: "",
-              type: 0,
-              answers: validAnswers,
+              type: question.type,
+              answers: validOptions,
             });
             console.log("Question added successfully");
-          } catch (questionError: any) {
+          } catch (questionError) {
             console.error("Error adding question:", questionError);
-            if (questionError.response) {
-              try {
-                const errorText = await questionError.response.text();
-                console.error("Error details:", errorText);
-              } catch (error) {
-                console.error("Could not read error response");
-              }
-            }
           }
         }
       }
-
       router.push(`/quizzes/${quiz.id}`);
     } catch (error: any) {
       console.error("Error creating quiz:", error);
@@ -114,10 +165,10 @@ export default function CreateQuizPage() {
       setIsLoading(false);
     }
   };
- 
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
-      <div className="bg-card rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-6">
         <h1 className="text-xl font-bold mb-6">Create New Quiz</h1>
 
         {error && (
@@ -134,15 +185,16 @@ export default function CreateQuizPage() {
             value={quizTitle}
             onChange={(e) => setQuizTitle(e.target.value)}
           />
+
           <textarea
             placeholder="Quiz Description (optional)"
-            className="w-full border border-gray-300 rounded-md px-3 py-2"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 mb-4"
             rows={3}
             value={quizDescription}
             onChange={(e) => setQuizDescription(e.target.value)}
           />
 
-           <div className="flex items-center mb-4">
+          <div className="flex items-center mb-4">
             <input
               type="checkbox"
               id="hasCorrectAnswers"
@@ -155,10 +207,29 @@ export default function CreateQuizPage() {
             </label>
           </div>
 
-          <div className="bg-background p-4 rounded-md mb-4">
-            <div className="mb-2 font-medium">
-              Question {currentQuestion + 1}
+          <div className="bg-green-50 p-4 rounded-md mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <div className="font-medium">Question {currentQuestion + 1}</div>
+
+              <div className="flex items-center">
+                <label htmlFor="questionType" className="mr-2 text-sm">
+                  Question Type
+                </label>
+                <select
+                  id="questionType"
+                  className="border border-gray-300 rounded-md px-2 py-1"
+                  value={questions[currentQuestion].type}
+                  onChange={(e) =>
+                    handleQuestionTypeChange(Number(e.target.value))
+                  }
+                >
+                  <option value={0}>Single Choice</option>
+                  <option value={1}>Multiple Choice</option>
+                  <option value={2}>Free Text</option>
+                </select>
+              </div>
             </div>
+
             <textarea
               placeholder="Enter your question"
               className="w-full border border-gray-300 rounded-md px-3 py-2 mb-4"
@@ -166,36 +237,73 @@ export default function CreateQuizPage() {
               onChange={(e) => handleQuestionChange(e.target.value)}
             />
 
-            {questions[currentQuestion].options.map((option, index) => (
-              <div key={index} className="flex items-center mb-2">
-                <div className="mr-2 text-sm">Option {index + 1}</div>
-                <input
-                  type="text"
-                  placeholder="Enter option text"
-                  className="w-full border border-gray-300 rounded-md px-3 py-1"
-                  value={option}
-                  onChange={(e) => handleOptionChange(index, e.target.value)}
-                />
-              </div>
-            ))}
+            {questions[currentQuestion].type !== 2 && (
+              <>
+                {hasCorrectAnswers && (
+                  <div className="text-sm text-gray-600 mb-2">
+                    Mark if answer is correct
+                  </div>
+                )}
 
-            <button className="text-sm text-primary mt-2" onClick={addOption}>
-              + Add Option
-            </button>
+                {questions[currentQuestion].options.map((option, index) => (
+                  <div key={index} className="flex items-center mb-2">
+                    {hasCorrectAnswers && (
+                      <input
+                        type={
+                          questions[currentQuestion].type === 0
+                            ? "radio"
+                            : "checkbox"
+                        }
+                        name={`correctAnswer-${currentQuestion}`}
+                        checked={option.isCorrect}
+                        onChange={() => handleCorrectToggle(index)}
+                        className="mr-2"
+                      />
+                    )}
+
+                    <input
+                      type="text"
+                      placeholder={`Option ${index + 1}`}
+                      className="flex-grow border border-gray-300 rounded-md px-3 py-1"
+                      value={option.text}
+                      onChange={(e) =>
+                        handleOptionChange(index, e.target.value)
+                      }
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => removeOption(index)}
+                      className="ml-2 text-gray-500 hover:text-red-500"
+                      disabled={questions[currentQuestion].options.length <= 2}
+                    >
+                      −
+                    </button>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={addOption}
+                  className="text-green-700 text-sm mt-2 flex items-center"
+                >
+                  <span className="mr-1">+</span> Add Option
+                </button>
+              </>
+            )}
           </div>
         </div>
 
         <div className="flex justify-between">
           <button
             onClick={addQuestion}
-            className="bg-primary text-white py-2 px-4 rounded-md hover:bg-opacity-90 transition"
+            className="bg-green-700 text-white py-2 px-4 rounded-md hover:bg-green-800 transition"
           >
-            Add Question
+            + Add Question
           </button>
-
           <button
             onClick={saveQuiz}
-            className="bg-secondary text-white py-2 px-4 rounded-md hover:bg-opacity-90 transition"
+            className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition"
             disabled={isLoading}
           >
             {isLoading ? "Saving..." : "Save Quiz"}
