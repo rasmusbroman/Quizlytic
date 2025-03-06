@@ -2,6 +2,7 @@
 using Quizlytic.API.Data;
 using Quizlytic.API.DTOs;
 using Quizlytic.API.Extensions;
+using Quizlytic.API.Models;
 
 namespace Quizlytic.API.Endpoints
 {
@@ -24,6 +25,20 @@ namespace Quizlytic.API.Endpoints
 
                 db.Questions.Add(question);
                 await db.SaveChangesAsync();
+                if (questionDto.Answers != null && questionDto.Answers.Any())
+                {
+                    foreach (var answerDto in questionDto.Answers)
+                    {
+                        var answer = new Answer
+                        {
+                            QuestionId = question.Id,
+                            Text = answerDto.Text,
+                            IsCorrect = answerDto.IsCorrect
+                        };
+                        db.Answers.Add(answer);
+                    }
+                    await db.SaveChangesAsync();
+                }
                 return Results.Created($"/api/questions/{question.Id}", question.ToDto());
             });
 

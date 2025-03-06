@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Quizlytic.API.Data;
@@ -11,9 +12,11 @@ using Quizlytic.API.Data;
 namespace Quizlytic.API.Migrations
 {
     [DbContext(typeof(QuizlyticDbContext))]
-    partial class QuizlyticDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250303223308_QuestionAnswer")]
+    partial class QuestionAnswer
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -125,9 +128,6 @@ namespace Quizlytic.API.Migrations
 
                     b.Property<DateTime?>("EndedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("HasCorrectAnswers")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("PinCode")
                         .IsRequired()

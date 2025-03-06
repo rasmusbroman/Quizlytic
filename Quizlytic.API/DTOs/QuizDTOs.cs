@@ -2,9 +2,9 @@
 
 namespace Quizlytic.API.DTOs
 {
-    public record CreateQuizDto(string Title, string Description);
-    public record UpdateQuizDto(string Title, string Description);
-    public record CreateQuestionDto(int QuizId, string Text, string ImageUrl, QuestionType Type);
+    public record CreateQuizDto(string Title, string Description, bool HasCorrectAnswers = true);
+    public record UpdateQuizDto(string Title, string Description, bool HasCorrectAnswers);
+    //public record CreateQuestionDto(int QuizId, string Text, string ImageUrl, QuestionType Type);
     public record UpdateQuestionDto(string Text, string ImageUrl, QuestionType Type);
 
     public record QuizSummaryDto(
@@ -26,6 +26,7 @@ namespace Quizlytic.API.DTOs
         string PinCode,
         string QrCodeUrl,
         QuizStatus Status,
+        bool HasCorrectAnswers,
         IEnumerable<QuestionDto> Questions);
 
     public record QuestionDto(
@@ -36,6 +37,17 @@ namespace Quizlytic.API.DTOs
         int QuizId,
         int OrderIndex,
         IEnumerable<AnswerDto> Answers);
+
+    public record CreateQuestionDto(
+        int QuizId,
+        string Text,
+        string ImageUrl,
+        QuestionType Type,
+        IEnumerable<CreateAnswerDto> Answers);
+
+    public record CreateAnswerDto(
+        string Text,
+        bool IsCorrect);
 
     public record AnswerDto(
         int Id,
