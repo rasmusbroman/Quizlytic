@@ -158,15 +158,12 @@ export default function CreateQuizPage() {
   // const isCurrentQuestionComplete = (): boolean => {
   //   return questions[currentQuestion]?.isComplete || false;
   // };
-
   const isQuizTitleValid = (): boolean => {
     return quizTitle.trim() !== "";
   };
-
   // const hasValidQuestions = (): boolean => {
   //   return questions.length > 0 && questions.some(q => validateQuestion(q).valid);
   // };
-
   const findIncompleteQuestion = (): {
     index: number;
     message: string;
@@ -308,19 +305,12 @@ export default function CreateQuizPage() {
     }
   };
 
-  console.log(
-    "Current question:",
-    currentQuestion,
-    "Is complete:",
-    questions[currentQuestion]?.isComplete,
-    "Question data:",
-    questions[currentQuestion]
-  );
-
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
-      <div className="bg-white rounded-lg shadow p-6">
-        <h1 className="text-xl font-bold mb-6">Create New Quiz</h1>
+    <div className="container mx-auto px-4 py-8 max-w-3xl bg-background">
+      <div className="bg-card rounded-lg shadow p-6">
+        <h1 className="text-xl font-bold mb-6 text-foreground">
+          Create New Quiz
+        </h1>
 
         {error && (
           <div className="mb-4 p-3 bg-red-100 text-red-800 rounded">
@@ -329,7 +319,7 @@ export default function CreateQuizPage() {
         )}
         <div className="mb-6">
           <div className="mb-4">
-            <label className="block text-gray-700 mb-1">
+            <label className="block text-foreground mb-1">
               Quiz Title <span className="text-red-500">*</span>
             </label>
             <input
@@ -338,7 +328,7 @@ export default function CreateQuizPage() {
               className={`w-full border ${
                 !isQuizTitleValid() && quizTitle !== ""
                   ? "border-red-500"
-                  : "border-gray-300"
+                  : "border-border"
               } rounded-md px-3 py-2`}
               value={quizTitle}
               onChange={(e) => setQuizTitle(e.target.value)}
@@ -351,7 +341,7 @@ export default function CreateQuizPage() {
           </div>
           <textarea
             placeholder="Quiz Description (optional)"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 mb-4"
+            className="w-full border border-border rounded-md px-3 py-2 mb-4"
             rows={3}
             value={quizDescription}
             onChange={(e) => setQuizDescription(e.target.value)}
@@ -364,22 +354,27 @@ export default function CreateQuizPage() {
               onChange={(e) => handleEducationalToggle(e.target.checked)}
               className="mr-2"
             />
-            <label htmlFor="hasCorrectAnswers">
+            <label htmlFor="hasCorrectAnswers" className="text-foreground">
               This quiz has correct answers (educational quiz)
             </label>
           </div>
 
-          <div className="bg-green-50 p-4 rounded-md mb-4">
+          <div className="bg-accent p-4 rounded-md mb-4">
             <div className="flex justify-between items-center mb-2">
-              <div className="font-medium">Question {currentQuestion + 1}</div>
+              <div className="font-medium text-foreground">
+                Question {currentQuestion + 1}
+              </div>
 
               <div className="flex items-center">
-                <label htmlFor="questionType" className="mr-2 text-sm">
+                <label
+                  htmlFor="questionType"
+                  className="mr-2 text-sm text-foreground"
+                >
                   Question Type
                 </label>
                 <select
                   id="questionType"
-                  className="border border-gray-300 rounded-md px-2 py-1"
+                  className="border border-border rounded-md px-2 py-1"
                   value={questions[currentQuestion]?.type || 0}
                   onChange={(e) =>
                     handleQuestionTypeChange(Number(e.target.value))
@@ -394,7 +389,7 @@ export default function CreateQuizPage() {
 
             <textarea
               placeholder="Enter your question"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 mb-4"
+              className="w-full border border-border rounded-md px-3 py-2 mb-4"
               value={questions[currentQuestion]?.text || ""}
               onChange={(e) => handleQuestionChange(e.target.value)}
             />
@@ -402,7 +397,7 @@ export default function CreateQuizPage() {
             {questions[currentQuestion]?.type !== 2 && (
               <>
                 {hasCorrectAnswers && (
-                  <div className="text-sm text-gray-600 mb-2">
+                  <div className="text-sm text-foreground mb-2">
                     Mark if answer is correct
                   </div>
                 )}
@@ -425,7 +420,7 @@ export default function CreateQuizPage() {
                     <input
                       type="text"
                       placeholder={`Option ${index + 1}`}
-                      className="flex-grow border border-gray-300 rounded-md px-3 py-1"
+                      className="flex-grow border border-border rounded-md px-3 py-1"
                       value={option.text}
                       onChange={(e) =>
                         handleOptionChange(index, e.target.value)
@@ -444,17 +439,19 @@ export default function CreateQuizPage() {
                 <button
                   type="button"
                   onClick={addOption}
-                  className="text-green-700 text-sm mt-2 flex items-center"
+                  className="text-primary text-sm mt-2 flex items-center"
                 >
                   <span className="mr-1">+</span> Add Option
                 </button>
               </>
             )}
           </div>
-          <div className="border border-gray-200 rounded-md p-3 mb-6">
-            <h3 className="font-medium mb-2">Added Questions</h3>
+          <div className="border border-border rounded-md p-3 mb-6">
+            <h3 className="font-medium mb-2 text-foreground">
+              Added Questions
+            </h3>
             {questions.length === 0 ? (
-              <p className="text-gray-500 text-sm">No questions added yet</p>
+              <p className="text-foreground text-sm">No questions added yet</p>
             ) : (
               <div className="space-y-2">
                 {questions.map((question, index) => {
@@ -464,18 +461,18 @@ export default function CreateQuizPage() {
                       key={question.id}
                       className={`border rounded-md p-2 ${
                         currentQuestion === index
-                          ? "border-green-500 bg-green-50"
+                          ? "border-primary bg-accent"
                           : validation.valid
-                          ? "border-gray-200"
+                          ? "border-border"
                           : "border-yellow-400 bg-yellow-50"
                       }`}
                     >
                       <div className="flex justify-between items-center">
                         <div className="flex-1 truncate">
-                          <span className="font-medium mr-2">
+                          <span className="font-medium mr-2 text-foreground">
                             Q{index + 1}:
                           </span>
-                          <span className="text-gray-700">
+                          <span className="text-foreground">
                             {question.text || "Untitled question"}
                             {!validation.valid && (
                               <span className="text-yellow-600 ml-1">
@@ -501,7 +498,7 @@ export default function CreateQuizPage() {
                           </button>
                         </div>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-xs text-foreground mt-1">
                         {question.type === 0
                           ? "Single Choice"
                           : question.type === 1
@@ -528,13 +525,13 @@ export default function CreateQuizPage() {
         <div className="flex justify-between">
           <button
             onClick={addQuestion}
-            className="bg-green-700 text-white py-2 px-4 rounded-md hover:bg-green-800 transition"
+            className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition"
           >
             + Add Question
           </button>
           <button
             onClick={saveQuiz}
-            className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition"
+            className="bg-secondary text-white py-2 px-4 rounded-md hover:bg-secondary/90 transition"
             disabled={isLoading || findIncompleteQuestion() !== null}
           >
             {isLoading ? "Saving..." : "Save Quiz"}

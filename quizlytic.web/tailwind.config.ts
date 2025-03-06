@@ -9,10 +9,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#2D652D',
-        secondary: '#5A9E5A',
-        background: '#FAFAF5',
-        card: '#FFFFFF',
+        primary: 'var(--primary)',
+        secondary: 'var(--secondary)',
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
+        card: 'var(--card)',
+        accent: 'var(--accent)',
+        border: 'var(--border)',
+        'primary-hover': 'var(--primary-hover)',
+        'secondary-hover': 'var(--secondary-hover)',
+        'text-primary': 'var(--text-primary)',
+        'text-secondary': 'var(--text-secondary)',
       },
     },
   },
