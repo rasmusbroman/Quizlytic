@@ -1,8 +1,8 @@
 export enum QuizStatus {
-    Created = 'Created',
-    Active = 'Active',
-    Paused = 'Paused',
-    Completed = 'Completed'
+    Created = 0,
+    Active = 1,
+    Paused = 2,
+    Completed = 3
   }
   
   export enum QuestionType {
@@ -15,6 +15,7 @@ export enum QuizStatus {
     id: number;
     title: string;
     description: string;
+    isPublic: boolean;
     createdAt: string;
     startedAt?: string;
     endedAt?: string;

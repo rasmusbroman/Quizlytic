@@ -11,6 +11,7 @@ namespace Quizlytic.API.Extensions
                 quiz.Id,
                 quiz.Title,
                 quiz.Description,
+                quiz.IsPublic,
                 quiz.CreatedAt,
                 quiz.Status,
                 quiz.Questions?.Count ?? 0,
@@ -24,6 +25,7 @@ namespace Quizlytic.API.Extensions
                 quiz.Id,
                 quiz.Title,
                 quiz.Description,
+                quiz.IsPublic,
                 quiz.CreatedAt,
                 quiz.StartedAt,
                 quiz.EndedAt,
@@ -63,6 +65,7 @@ namespace Quizlytic.API.Extensions
             {
                 Title = dto.Title,
                 Description = dto.Description,
+                IsPublic = dto.IsPublic,
                 HasCorrectAnswers = dto.HasCorrectAnswers,
                 CreatedAt = DateTime.UtcNow,
                 Status = QuizStatus.Created

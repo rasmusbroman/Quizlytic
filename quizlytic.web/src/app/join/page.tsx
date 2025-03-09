@@ -1,34 +1,34 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import QuizParticipant from '@/components/quiz/QuizParticipant';
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import QuizParticipant from "@/components/quiz/QuizParticipant";
 
 export default function JoinQuizPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialPin = searchParams.get('pin') || '';
-  
+  const initialPin = searchParams.get("pin") || "";
+
   const [pinCode, setPinCode] = useState(initialPin);
-  const [participantName, setParticipantName] = useState('');
+  const [participantName, setParticipantName] = useState("");
   const [showParticipant, setShowParticipant] = useState(false);
-  
+
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
     if (pinCode && participantName) {
       setShowParticipant(true);
     }
   };
-  
+
   if (showParticipant) {
     return <QuizParticipant initialPinCode={pinCode} />;
   }
-  
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-md">
       <div className="bg-card rounded-lg shadow p-6">
         <h1 className="text-xl font-bold mb-6 text-center">Join a Quiz</h1>
-        
+
         <form onSubmit={handleJoin}>
           <div className="mb-4">
             <label className="block text-gray-700 mb-1">Quiz PIN Code</label>
@@ -41,7 +41,7 @@ export default function JoinQuizPage() {
               required
             />
           </div>
-          
+
           <div className="mb-6">
             <label className="block text-gray-700 mb-1">Your Name</label>
             <input
@@ -53,7 +53,7 @@ export default function JoinQuizPage() {
               required
             />
           </div>
-          
+
           <button
             type="submit"
             className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-opacity-90 transition"

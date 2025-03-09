@@ -3,12 +3,14 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { quizApi, questionApi } from "@/lib/api-client";
+import { IoArrowBack, IoAdd, IoClose } from "react-icons/io5";
 
 export default function CreateQuizPage() {
   const router = useRouter();
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
   const [hasCorrectAnswers, setHasCorrectAnswers] = useState(false);
+  const [isPublic, setIsPublic] = useState<boolean | null>(null);
   const [questions, setQuestions] = useState<
     {
       id: number;
@@ -34,6 +36,8 @@ export default function CreateQuizPage() {
   const [nextQuestionId, setNextQuestionId] = useState(2);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
 
   const validateQuestion = (
     question: (typeof questions)[0]
@@ -65,9 +69,52 @@ export default function CreateQuizPage() {
         }
       }
     }
-
     return { valid: true };
   };
+
+  const validationErrors = () => {
+    const errors = [];
+
+    if (!isQuizTitleValid()) {
+      errors.push("Please enter a quiz title");
+    }
+
+    if (!isVisibilitySelected()) {
+      errors.push(
+        "Please choose whether this quiz should be public or private"
+      );
+    }
+
+    if (questions.length === 0) {
+      errors.push("Please add at least one question to your quiz");
+    }
+
+    const incompleteQuestion = findIncompleteQuestion();
+    if (incompleteQuestion) {
+      errors.push(
+        `Please complete question ${incompleteQuestion.index + 1}: ${
+          incompleteQuestion.message
+        }`
+      );
+    }
+
+    return errors;
+  };
+  const isFormValid = () => {
+    return validationErrors().length === 0;
+  };
+
+  useEffect(() => {
+    if (hasAttemptedSave && showValidationErrors) {
+      const errors = validationErrors();
+      if (errors.length > 0) {
+        setError(errors.join(". "));
+      } else {
+        setError("");
+        setShowValidationErrors(false);
+      }
+    }
+  }, [quizTitle, isPublic, questions, hasCorrectAnswers, hasAttemptedSave]);
 
   useEffect(() => {
     if (
@@ -102,6 +149,18 @@ export default function CreateQuizPage() {
       updatedQuestions[currentQuestion].options.splice(index, 1);
       setQuestions(updatedQuestions);
     }
+  };
+
+  const handleQuizTitleChange = (value: string) => {
+    setQuizTitle(value);
+  };
+
+  const handleQuizDescriptionChange = (value: string) => {
+    setQuizDescription(value);
+  };
+
+  const handleVisibilityChange = (value: boolean) => {
+    setIsPublic(value);
   };
 
   const handleQuestionChange = (text: string) => {
@@ -155,15 +214,14 @@ export default function CreateQuizPage() {
     }
   };
 
-  // const isCurrentQuestionComplete = (): boolean => {
-  //   return questions[currentQuestion]?.isComplete || false;
-  // };
   const isQuizTitleValid = (): boolean => {
     return quizTitle.trim() !== "";
   };
-  // const hasValidQuestions = (): boolean => {
-  //   return questions.length > 0 && questions.some(q => validateQuestion(q).valid);
-  // };
+
+  const isVisibilitySelected = (): boolean => {
+    return isPublic !== null;
+  };
+
   const findIncompleteQuestion = (): {
     index: number;
     message: string;
@@ -186,6 +244,7 @@ export default function CreateQuizPage() {
       setError(
         `Please complete the current question: ${currentValidation.message}`
       );
+      setShowValidationErrors(true);
       return;
     }
 
@@ -197,9 +256,11 @@ export default function CreateQuizPage() {
           incompleteQuestion.message
         }`
       );
+      setShowValidationErrors(true);
       return;
     }
     setError("");
+    setShowValidationErrors(false);
 
     const newQuestion = {
       id: nextQuestionId,
@@ -220,6 +281,7 @@ export default function CreateQuizPage() {
   const deleteQuestion = (index: number) => {
     if (questions.length <= 1) {
       setError("You need at least one question");
+      setShowValidationErrors(true);
       return;
     }
 
@@ -234,28 +296,17 @@ export default function CreateQuizPage() {
   const editQuestion = (index: number) => {
     setCurrentQuestion(index);
     setError("");
+    setShowValidationErrors(false);
   };
 
   const saveQuiz = async () => {
-    if (!isQuizTitleValid()) {
-      setError("Please enter a quiz title");
+    setHasAttemptedSave(true);
+    setShowValidationErrors(true);
+
+    const errors = validationErrors();
+    if (errors.length > 0) {
+      setError(errors.join(". "));
       window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-
-    if (questions.length === 0) {
-      setError("Please add at least one question to your quiz");
-      return;
-    }
-
-    const incompleteQuestion = findIncompleteQuestion();
-    if (incompleteQuestion) {
-      setCurrentQuestion(incompleteQuestion.index);
-      setError(
-        `Please complete question ${incompleteQuestion.index + 1}: ${
-          incompleteQuestion.message
-        }`
-      );
       return;
     }
     setIsLoading(true);
@@ -267,6 +318,7 @@ export default function CreateQuizPage() {
         title: quizTitle,
         description: quizDescription || "",
         hasCorrectAnswers: hasCorrectAnswers,
+        isPublic: isPublic || false,
       });
       console.log("Quiz created successfully:", quiz);
 
@@ -304,77 +356,156 @@ export default function CreateQuizPage() {
       setIsLoading(false);
     }
   };
+  const handleBackNavigation = () => {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl bg-background">
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="bg-card rounded-lg shadow p-6">
-        <h1 className="text-xl font-bold mb-6 text-foreground">
-          Create New Quiz
-        </h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-xl font-bold text-foreground">Create New Quiz</h1>
+          <button
+            onClick={handleBackNavigation}
+            className="flex items-center text-primary hover:text-primary-hover transition"
+            aria-label="Back"
+          >
+            <IoArrowBack className="h-5 w-5 mr-1" />
+            <span className="hidden sm:inline">Back</span>
+          </button>
+        </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-800 rounded">
-            {error}
+        {showValidationErrors && error && (
+          <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-md">
+            {error.split(". ").map((err, index) => (
+              <p key={index}>{err}</p>
+            ))}
           </div>
         )}
-        <div className="mb-6">
-          <div className="mb-4">
-            <label className="block text-foreground mb-1">
-              Quiz Title <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Enter a title for your quiz"
-              className={`w-full border ${
-                !isQuizTitleValid() && quizTitle !== ""
-                  ? "border-red-500"
-                  : "border-border"
-              } rounded-md px-3 py-2`}
-              value={quizTitle}
-              onChange={(e) => setQuizTitle(e.target.value)}
-            />
-            {!isQuizTitleValid() && quizTitle !== "" && (
-              <p className="text-red-500 text-sm mt-1">
-                A title is required for your quiz
-              </p>
-            )}
-          </div>
-          <textarea
-            placeholder="Quiz Description (optional)"
-            className="w-full border border-border rounded-md px-3 py-2 mb-4"
-            rows={3}
-            value={quizDescription}
-            onChange={(e) => setQuizDescription(e.target.value)}
-          />
-          <div className="flex items-center mb-4">
-            <input
-              type="checkbox"
-              id="hasCorrectAnswers"
-              checked={hasCorrectAnswers}
-              onChange={(e) => handleEducationalToggle(e.target.checked)}
-              className="mr-2"
-            />
-            <label htmlFor="hasCorrectAnswers" className="text-foreground">
-              This quiz has correct answers (educational quiz)
-            </label>
-          </div>
 
-          <div className="bg-accent p-4 rounded-md mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <div className="font-medium text-foreground">
-                Question {currentQuestion + 1}
+        <div className="bg-card rounded-lg shadow mb-8">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold mb-4 text-foreground">
+              Quiz Information
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-foreground mb-2">
+                  Quiz Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter a title for your quiz"
+                  className={`w-full border ${
+                    !isQuizTitleValid() && quizTitle !== ""
+                      ? "border-red-500"
+                      : "border-border"
+                  } rounded-md px-4 py-3`}
+                  value={quizTitle}
+                  onChange={(e) => handleQuizTitleChange(e.target.value)}
+                />
+                {!isQuizTitleValid() && quizTitle !== "" && (
+                  <p className="text-red-500 text-sm mt-1">
+                    A title is required for your quiz
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-foreground mb-2">
+                  Quiz Description
+                </label>
+                <textarea
+                  placeholder="Enter a description for your quiz (optional)"
+                  className="w-full border border-border rounded-md px-4 py-3"
+                  rows={3}
+                  value={quizDescription}
+                  onChange={(e) => handleQuizDescriptionChange(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-foreground mb-2">
+                  Quiz Visibility <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-6">
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      id="visibilityPublic"
+                      name="visibility"
+                      checked={isPublic === true}
+                      onChange={() => handleVisibilityChange(true)}
+                      className="mr-2"
+                    />
+                    <label
+                      htmlFor="visibilityPublic"
+                      className="text-foreground"
+                    >
+                      Public{" "}
+                      <span className="text-text-secondary text-sm">
+                        (visible to everyone)
+                      </span>
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      id="visibilityPrivate"
+                      name="visibility"
+                      checked={isPublic === false}
+                      onChange={() => handleVisibilityChange(false)}
+                      className="mr-2"
+                    />
+                    <label
+                      htmlFor="visibilityPrivate"
+                      className="text-foreground"
+                    >
+                      Private{" "}
+                      <span className="text-text-secondary text-sm">
+                        (accessible only with PIN or QR-code)
+                      </span>
+                    </label>
+                  </div>
+                </div>
+                {isPublic === null && (
+                  <p className="text-text-secondary text-sm mt-1">
+                    Please select whether this quiz should be public or private
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center">
-                <label
-                  htmlFor="questionType"
-                  className="mr-2 text-sm text-foreground"
-                >
-                  Question Type
+                <input
+                  type="checkbox"
+                  id="hasCorrectAnswers"
+                  checked={hasCorrectAnswers}
+                  onChange={(e) => handleEducationalToggle(e.target.checked)}
+                  className="mr-2"
+                />
+                <label htmlFor="hasCorrectAnswers" className="text-foreground">
+                  This quiz has correct answers (educational quiz)
                 </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-lg border border-border mb-8">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-foreground">
+                Question {currentQuestion + 1}
+              </h2>
+              <div className="flex items-center">
                 <select
                   id="questionType"
-                  className="border border-border rounded-md px-2 py-1"
+                  className="border border-border rounded-md px-3 py-2"
                   value={questions[currentQuestion]?.type || 0}
                   onChange={(e) =>
                     handleQuestionTypeChange(Number(e.target.value))
@@ -387,79 +518,93 @@ export default function CreateQuizPage() {
               </div>
             </div>
 
-            <textarea
-              placeholder="Enter your question"
-              className="w-full border border-border rounded-md px-3 py-2 mb-4"
-              value={questions[currentQuestion]?.text || ""}
-              onChange={(e) => handleQuestionChange(e.target.value)}
-            />
+            <div className="bg-accent rounded-md p-6 mb-6">
+              <textarea
+                placeholder="Enter your question"
+                className="w-full border border-border rounded-md px-4 py-3 mb-4"
+                rows={2}
+                value={questions[currentQuestion]?.text || ""}
+                onChange={(e) => handleQuestionChange(e.target.value)}
+              />
 
-            {questions[currentQuestion]?.type !== 2 && (
-              <>
-                {hasCorrectAnswers && (
-                  <div className="text-sm text-foreground mb-2">
-                    Mark if answer is correct
-                  </div>
-                )}
+              {questions[currentQuestion]?.type !== 2 && (
+                <>
+                  {hasCorrectAnswers && (
+                    <div className="text-sm font-medium text-foreground mb-3">
+                      Mark if answer is correct
+                    </div>
+                  )}
 
-                {questions[currentQuestion]?.options.map((option, index) => (
-                  <div key={index} className="flex items-center mb-2">
-                    {hasCorrectAnswers && (
-                      <input
-                        type={
-                          questions[currentQuestion]?.type === 0
-                            ? "radio"
-                            : "checkbox"
-                        }
-                        name={`correctAnswer-${currentQuestion}`}
-                        checked={option.isCorrect}
-                        onChange={() => handleCorrectToggle(index)}
-                        className="mr-2"
-                      />
+                  <div className="space-y-3">
+                    {questions[currentQuestion]?.options.map(
+                      (option, index) => (
+                        <div key={index} className="flex items-center">
+                          {hasCorrectAnswers && (
+                            <input
+                              type={
+                                questions[currentQuestion]?.type === 0
+                                  ? "radio"
+                                  : "checkbox"
+                              }
+                              name={`correctAnswer-${currentQuestion}`}
+                              checked={option.isCorrect}
+                              onChange={() => handleCorrectToggle(index)}
+                              className="mr-3"
+                            />
+                          )}
+                          <input
+                            type="text"
+                            placeholder={`Option ${index + 1}`}
+                            className="flex-grow border border-border rounded-md px-4 py-2"
+                            value={option.text}
+                            onChange={(e) =>
+                              handleOptionChange(index, e.target.value)
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeOption(index)}
+                            className="ml-2 text-text-secondary hover:text-red-500 h-8 w-8 flex items-center justify-center"
+                            disabled={
+                              questions[currentQuestion]?.options.length <= 2
+                            }
+                          >
+                            <IoClose className="h-5 w-5" />
+                          </button>
+                        </div>
+                      )
                     )}
-                    <input
-                      type="text"
-                      placeholder={`Option ${index + 1}`}
-                      className="flex-grow border border-border rounded-md px-3 py-1"
-                      value={option.text}
-                      onChange={(e) =>
-                        handleOptionChange(index, e.target.value)
-                      }
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeOption(index)}
-                      className="ml-2 text-gray-500 hover:text-red-500"
-                      disabled={questions[currentQuestion]?.options.length <= 2}
-                    >
-                      −
-                    </button>
                   </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={addOption}
-                  className="text-primary text-sm mt-2 flex items-center"
-                >
-                  <span className="mr-1">+</span> Add Option
-                </button>
-              </>
-            )}
+                  <button
+                    type="button"
+                    onClick={addOption}
+                    className="text-primary text-sm mt-4 flex items-center"
+                  >
+                    <IoAdd className="h-5 w-5 mr-1" />
+                    Add Option
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-          <div className="border border-border rounded-md p-3 mb-6">
-            <h3 className="font-medium mb-2 text-foreground">
-              Added Questions
-            </h3>
+        </div>
+
+        <div className="bg-card rounded-lg shadow mb-8">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold mb-4 text-foreground">
+              All Questions
+            </h2>
+
             {questions.length === 0 ? (
-              <p className="text-foreground text-sm">No questions added yet</p>
+              <p className="text-text-secondary">No questions added yet</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {questions.map((question, index) => {
                   const validation = validateQuestion(question);
                   return (
                     <div
                       key={question.id}
-                      className={`border rounded-md p-2 ${
+                      className={`border rounded-md p-4 ${
                         currentQuestion === index
                           ? "border-primary bg-accent"
                           : validation.valid
@@ -470,7 +615,7 @@ export default function CreateQuizPage() {
                       <div className="flex justify-between items-center">
                         <div className="flex-1 truncate">
                           <span className="font-medium mr-2 text-foreground">
-                            Q{index + 1}:
+                            Question {index + 1}:
                           </span>
                           <span className="text-foreground">
                             {question.text || "Untitled question"}
@@ -481,11 +626,11 @@ export default function CreateQuizPage() {
                             )}
                           </span>
                         </div>
-                        <div className="flex space-x-2">
+                        <div className="flex space-x-3">
                           <button
                             type="button"
                             onClick={() => editQuestion(index)}
-                            className="text-blue-600 hover:text-blue-800"
+                            className="text-primary hover:text-primary-hover"
                           >
                             Edit
                           </button>
@@ -498,7 +643,7 @@ export default function CreateQuizPage() {
                           </button>
                         </div>
                       </div>
-                      <div className="text-xs text-foreground mt-1">
+                      <div className="text-sm text-text-secondary mt-2">
                         {question.type === 0
                           ? "Single Choice"
                           : question.type === 1
@@ -522,17 +667,23 @@ export default function CreateQuizPage() {
             )}
           </div>
         </div>
+
         <div className="flex justify-between">
           <button
             onClick={addQuestion}
-            className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition"
+            className="bg-primary text-white py-3 px-5 rounded-md hover:bg-primary-hover transition flex items-center"
           >
-            + Add Question
+            <IoAdd className="h-5 w-5 mr-1" />
+            Add Question
           </button>
           <button
             onClick={saveQuiz}
-            className="bg-secondary text-white py-2 px-4 rounded-md hover:bg-secondary/90 transition"
-            disabled={isLoading || findIncompleteQuestion() !== null}
+            className={`py-3 px-5 rounded-md transition text-white ${
+              isFormValid()
+                ? "bg-primary hover:bg-primary-hover"
+                : "bg-secondary hover:bg-secondary-hover"
+            }`}
+            disabled={isLoading}
           >
             {isLoading ? "Saving..." : "Save Quiz"}
           </button>
