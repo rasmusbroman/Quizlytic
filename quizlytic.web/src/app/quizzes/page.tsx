@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { IoArrowBack } from "react-icons/io5";
 import { useQuizList } from "./hooks/useQuizList";
-import SearchInput from "./components/SearchInput";
+import SearchInput from "@/components/ui/SearchInput";
 import QuizFilters from "./components/QuizFilters";
 import SortDropdown from "./components/SortDropdown";
 import QuizItem from "./components/QuizItem";
@@ -43,6 +43,7 @@ export default function QuizzesPage() {
           <SearchInput
             value={quizList.searchQuery}
             onChange={quizList.setSearchQuery}
+            placeholder="Search quizzes..."
           />
 
           <QuizFilters
