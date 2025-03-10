@@ -13,6 +13,7 @@
         public string QrCodeUrl { get; set; }
         public QuizStatus Status { get; set; } = QuizStatus.Created;
         public bool HasCorrectAnswers { get; set; } = true;
+        public string PublicId { get; set; }
         public List<Question> Questions { get; set; } = new List<Question>();
         public List<Participant> Participants { get; set; } = new List<Participant>();
 

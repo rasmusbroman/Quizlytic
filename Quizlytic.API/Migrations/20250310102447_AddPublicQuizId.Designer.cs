@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Quizlytic.API.Data;
@@ -11,9 +12,11 @@ using Quizlytic.API.Data;
 namespace Quizlytic.API.Migrations
 {
     [DbContext(typeof(QuizlyticDbContext))]
-    partial class QuizlyticDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250310102447_AddPublicQuizId")]
+    partial class AddPublicQuizId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -139,8 +142,7 @@ namespace Quizlytic.API.Migrations
 
                     b.Property<string>("PublicId")
                         .IsRequired()
-                        .HasMaxLength(12)
-                        .HasColumnType("character varying(12)");
+                        .HasColumnType("text");
 
                     b.Property<string>("QrCodeUrl")
                         .IsRequired()
@@ -158,9 +160,6 @@ namespace Quizlytic.API.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique();
 
                     b.ToTable("Quizzes");
                 });

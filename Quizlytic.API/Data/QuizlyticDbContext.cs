@@ -57,6 +57,15 @@ namespace Quizlytic.API.Data
             modelBuilder.Entity<Quiz>()
                 .Property(q => q.PinCode)
                 .HasMaxLength(6);
+
+            modelBuilder.Entity<Quiz>()
+                .Property(q => q.PublicId)
+                .IsRequired()
+                .HasMaxLength(12);
+
+            modelBuilder.Entity<Quiz>()
+                .HasIndex(q => q.PublicId)
+                .IsUnique();
         }
     }
 }

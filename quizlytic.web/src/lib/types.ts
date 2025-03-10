@@ -25,6 +25,7 @@ export enum QuizStatus {
     questions: Question[];
     participants?: Participant[];
     questionsCount: number;
+    publicId: string;
   }
   
   export interface Question {

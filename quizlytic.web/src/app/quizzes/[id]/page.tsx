@@ -1,22 +1,31 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import QuizHost from "@/components/quiz/QuizHost";
 import { useEffect, useState } from "react";
+import { quizApi } from "@/lib/api-client";
 
-export default function QuizHostPage() {
+export default function QuizRedirectPage() {
   const params = useParams();
   const router = useRouter();
-  const [isRouterReady, setIsRouterReady] = useState(false);
+  const id = parseInt(params.id as string);
 
   useEffect(() => {
-    setIsRouterReady(true);
-  }, []);
+    const redirectToPublicId = async () => {
+      try {
+        const quiz = await quizApi.getById(id);
+        router.replace(`/quiz/${quiz.publicId}`);
+      } catch (err) {
+        console.error("Error loading quiz for redirect:", err);
+        router.push("/");
+      }
+    };
 
-  if (!isRouterReady) {
-    return <div className="text-center p-8">Loading...</div>;
-  }
+    if (!isNaN(id)) {
+      redirectToPublicId();
+    } else {
+      router.push("/");
+    }
+  }, [id, router]);
 
-  const quizId = parseInt(params.id as string);
-  return <QuizHost quizId={quizId} />;
+  return <div className="text-center p-8">Redirecting...</div>;
 }

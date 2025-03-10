@@ -34,6 +34,10 @@ export const quizApi = {
     return fetchJson<Quiz[]>(url);
   },
 
+  getByPublicId: async (publicId: string): Promise<Quiz> => {
+    return fetchJson<Quiz>(`${API_URL}/api/quizzes/public/${publicId}`);
+  },
+
   getById: async (id: number): Promise<Quiz> => {
     return fetchJson<Quiz>(`${API_URL}/api/quizzes/${id}`);
   },
