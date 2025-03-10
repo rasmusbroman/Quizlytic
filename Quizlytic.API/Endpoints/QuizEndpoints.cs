@@ -14,8 +14,17 @@ namespace Quizlytic.API.Endpoints
         {
             var quizEndpoints = routes.MapGroup("/api/quizzes");
 
-            quizEndpoints.MapGet("/", async (QuizlyticDbContext db) =>
+            quizEndpoints.MapGet("/", async (HttpContext context, QuizlyticDbContext db) =>
             {
+                bool publicOnly = context.Request.Query.ContainsKey("publicOnly") &&
+                      context.Request.Query["publicOnly"] == "true";
+
+                var query = db.Quizzes.AsQueryable();
+                if (publicOnly)
+                {
+                    query = query.Where(q => q.IsPublic);
+                }
+
                 var quizzes = await db.Quizzes
                     .Include(q => q.Questions)
                     .Include(q => q.Participants)

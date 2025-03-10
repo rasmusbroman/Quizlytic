@@ -15,8 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Quizlytic - Interaktiva quiz i realtid",
-  description: "Skapa och delta i interaktiva quiz och omröstningar i realtid",
+  title: "Quizlytic - Interactive quizzes in real-time",
+  description:
+    "Create and participate in interactive quizzes and surveys in real-time",
 };
 
 export default function RootLayout({
@@ -26,11 +27,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="sv" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col bg-gray-50`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col bg-background`}
+      >
         <Header />
-        <main className="flex-grow">
-          {children}
-        </main>
+        <main className="flex-grow pt-6 pb-20">{children}</main>
         <Footer />
       </body>
     </html>

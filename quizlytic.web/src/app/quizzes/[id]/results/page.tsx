@@ -61,7 +61,8 @@ export default function ResultsPage() {
 
           <div className="space-y-2">
             <div className="bg-background p-3 rounded text-sm">
-              &quot;How to cook pasta&quot; question 3 received the wrong answer.
+              &quot;How to cook pasta&quot; question 3 received the wrong
+              answer.
             </div>
             <div className="bg-background p-3 rounded text-sm">
               Are you worried about your audience?
@@ -120,6 +121,46 @@ export default function ResultsPage() {
           <p className="text-gray-600">No archived quizzes found.</p>
         </div>
       )}
+
+      <div className="bg-card rounded-lg shadow p-6">
+        <h2 className="text-lg font-bold mb-4 text-foreground">
+          Recent Activity
+        </h2>
+        <div className="space-y-2">
+          {activeQuizzes.length > 0 ? (
+            activeQuizzes.slice(0, 2).map((quiz, index) => (
+              <div
+                key={index}
+                className="bg-accent p-3 rounded text-sm text-foreground"
+              >
+                Quiz active - {quiz.title} ({quiz.participantsCount}{" "}
+                participants)
+              </div>
+            ))
+          ) : (
+            <div className="bg-accent p-3 rounded text-sm text-foreground">
+              No recent activity to display
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-card rounded-lg shadow p-6">
+        <h2 className="text-lg font-bold mb-3 text-foreground">
+          Response Statistics
+        </h2>
+        <div className="h-32 bg-card border border-border rounded-md flex items-center justify-center">
+          <svg width="280" height="100" viewBox="0 0 280 100">
+            <polyline
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth="2"
+              points="0,80 40,70 80,40 120,30 160,50 200,45 240,30 280,40"
+            />
+            <line x1="0" y1="99" x2="280" y2="99" stroke="var(--border)" />
+          </svg>
+        </div>
+      </div>
     </div>
   );
 }

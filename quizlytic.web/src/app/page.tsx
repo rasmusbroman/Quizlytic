@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { quizApi } from "@/lib/api-client";
-import { Quiz } from "@/lib/types";
+import { Quiz, QuizStatus } from "@/lib/types";
+import DateDisplay from "@/components/DateDisplay";
+import { IoSearch } from "react-icons/io5";
 
 export default function HomePage() {
   const router = useRouter();
@@ -16,11 +18,11 @@ export default function HomePage() {
   useEffect(() => {
     const loadQuizzes = async () => {
       try {
-        const data = await quizApi.getAll();
+        const data = await quizApi.getAll(true);
         setQuizzes(data);
       } catch (err) {
         console.error("Error loading quizzes:", err);
-        setError("Kunde inte ladda quiz. Kontrollera API-anslutningen.");
+        setError("Could not load quizzes. Please check your connection.");
       } finally {
         setIsLoading(false);
       }
@@ -29,94 +31,141 @@ export default function HomePage() {
     loadQuizzes();
   }, []);
 
-  const filteredQuizzes = quizzes.filter((quiz) =>
+  const activeQuizzes = quizzes
+    .filter((quiz) => quiz.status === QuizStatus.Active && quiz.isPublic)
+    .sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA;
+    });
+
+  const filteredQuizzes = activeQuizzes.filter((quiz) =>
     quiz.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  const displayQuizzes = filteredQuizzes.slice(0, 6);
+  const handleShowAllQuizzes = () => {
+    localStorage.setItem(
+      "quizFilter",
+      JSON.stringify({
+        showStatuses: [
+          QuizStatus.Active,
+          QuizStatus.Paused,
+          QuizStatus.Created,
+        ],
+        sortOption: "date-desc",
+        publicOnly: true,
+      })
+    );
+    router.push("/quizzes");
+  };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
-      <div className="bg-card rounded-lg shadow p-6 mb-8">
-        <h1 className="text-xl font-bold mb-4">Dashboard</h1>
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="bg-card rounded-lg shadow p-8 mb-8">
+        <h1 className="text-2xl font-bold mb-3 text-foreground">
+          Welcome to Quizlytic
+        </h1>
+        <p className="text-text-secondary mb-6">
+          Create and participate in interactive quizzes in real-time. Join an
+          active quiz or create your own to get started.
+        </p>
 
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder="Search Quiz here..."
-            className="w-full border border-gray-300 rounded-md px-3 py-2"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-3">
-          <button
-            onClick={() => router.push("/quizzes")}
-            className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-opacity-90 transition"
-          >
-            Show All Quizzes
-          </button>
-
+        <div className="grid md:grid-cols-3 gap-4">
           <button
             onClick={() => router.push("/join")}
-            className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-opacity-90 transition"
+            className="w-full bg-primary text-white py-3 px-4 rounded-md hover:bg-primary-hover transition"
           >
-            Join Quiz with PinCode
+            Join a Quiz
           </button>
 
           <Link
             href="/create"
-            className="block w-full bg-secondary text-white py-2 px-4 rounded-md hover:bg-opacity-90 transition text-center"
+            className="block w-full bg-secondary text-white py-3 px-4 rounded-md hover:bg-secondary-hover transition text-center"
           >
-            Create New Quiz
+            Create a Quiz
           </Link>
-        </div>
 
-        <div className="mt-8">
           <button
-            onClick={() => router.push("/contact")}
-            className="w-full border border-gray-300 py-2 px-4 rounded-md hover:bg-gray-50 transition"
+            onClick={() => router.push("/results")}
+            className="w-full bg-accent text-primary py-3 px-4 rounded-md hover:bg-border transition"
           >
-            Contact Us
+            View Results
           </button>
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="text-center p-4">Laddar...</div>
-      ) : error ? (
-        <div className="bg-red-100 text-red-800 p-4 rounded mb-4">{error}</div>
-      ) : filteredQuizzes.length > 0 ? (
-        <div className="bg-card rounded-lg shadow p-6">
-          <h2 className="text-lg font-bold mb-4">Your Recent Quizzes</h2>
-          <div className="space-y-3">
-            {filteredQuizzes.slice(0, 5).map((quiz) => (
+      <div className="bg-card rounded-lg shadow p-6 mb-8">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search active public quizzes..."
+            className="w-full border border-border rounded-md px-4 py-3 pr-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <div className="absolute right-3 top-3 text-primary">
+            <IoSearch className="h-6 w-6" />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-card rounded-lg shadow p-6 mb-8">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-foreground">
+            Active Public Quizzes
+          </h2>
+          <button
+            onClick={handleShowAllQuizzes}
+            className="inline-block border border-primary text-primary px-4 py-1 rounded-md hover:bg-accent transition text-sm"
+          >
+            View All Quizzes
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="text-center py-6">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            <p className="mt-2 text-text-secondary">Loading quizzes...</p>
+          </div>
+        ) : error ? (
+          <div className="bg-red-100 text-red-800 p-4 rounded mb-4">
+            {error}
+          </div>
+        ) : displayQuizzes.length > 0 ? (
+          <div className="space-y-4">
+            {displayQuizzes.map((quiz) => (
               <div
                 key={quiz.id}
                 onClick={() => router.push(`/quizzes/${quiz.id}`)}
-                className="border border-gray-200 rounded-md p-3 hover:bg-gray-50 cursor-pointer"
+                className="border border-border rounded-md p-4 hover:bg-accent cursor-pointer transition"
               >
                 <div className="flex justify-between items-center">
-                  <h3 className="font-medium">{quiz.title}</h3>
-                  <span
-                    className={`px-2 py-0.5 text-xs rounded-full ${
-                      quiz.status === "Active"
-                        ? "bg-green-100 text-green-800"
-                        : quiz.status === "Completed"
-                        ? "bg-gray-100 text-gray-800"
-                        : "bg-blue-100 text-blue-800"
-                    }`}
-                  >
-                    {quiz.status}
+                  <h3 className="font-medium text-foreground">{quiz.title}</h3>
+                  <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                    Active
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-text-secondary mt-1">
                   {quiz.questionsCount} questions
+                </p>
+                <p className="text-xs text-text-secondary mt-2">
+                  Created{" "}
+                  <DateDisplay date={quiz.createdAt} formatString="PPp" />
                 </p>
               </div>
             ))}
           </div>
-        </div>
-      ) : null}
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-text-secondary">
+              No active public quizzes found
+            </p>
+            <p className="mt-2 text-sm text-text-secondary">
+              Create a new quiz or check back later for active sessions
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

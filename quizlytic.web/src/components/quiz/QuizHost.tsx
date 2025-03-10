@@ -5,6 +5,7 @@ import { useQuizHost } from "@/lib/signalr-client";
 import { quizApi, resultApi } from "@/lib/api-client";
 import { Quiz, Question, QuizStatus, Answer } from "@/lib/types";
 import DateDisplay from "@/components/DateDisplay";
+import { IoArrowBack } from "react-icons/io5";
 
 interface QuizHostProps {
   quizId: number;
@@ -49,7 +50,7 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
         }
       } catch (err) {
         console.error("Error loading quiz:", err);
-        setError("Kunde inte ladda quizet. Försök igen senare.");
+        setError("Could not load quiz. Please try again later.");
       } finally {
         setIsLoading(false);
       }
@@ -87,7 +88,7 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
       setQuiz(updatedQuiz);
     } catch (err) {
       console.error("Error starting quiz:", err);
-      setError("Kunde inte starta quizet. Försök igen senare.");
+      setError("Could not start the quiz. Please try again later.");
     }
   };
 
@@ -111,7 +112,7 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
       setQuiz(updatedQuiz);
     } catch (err) {
       console.error("Error ending quiz:", err);
-      setError("Kunde inte avsluta quizet. Försök igen senare.");
+      setError("Could not end the quiz. Please try again later.");
     }
   };
 
@@ -128,6 +129,14 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
     const count = getAnswerCount(results, answerId);
     const total = results?.reduce((sum, result) => sum + result.count, 0) || 0;
     return total > 0 ? Math.round((count / total) * 100) : 0;
+  };
+
+  const handleBackNavigation = () => {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
   };
 
   const renderQuestionResult = (question: Question): React.ReactNode => {
@@ -171,177 +180,235 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
   };
 
   if (isLoading) {
-    return <div className="text-center p-8">Laddar quiz...</div>;
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="bg-card rounded-lg shadow p-6 text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mb-2"></div>
+          <p className="text-text-secondary">Loading quiz...</p>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="max-w-3xl mx-auto my-8 p-6 card">
-        <div className="bg-red-100 text-red-800 p-4 rounded mb-4">{error}</div>
-        <button className="btn-primary" onClick={() => router.push("/quizzes")}>
-          Tillbaka till alla quiz
-        </button>
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="bg-card rounded-lg shadow p-6">
+          <div className="bg-red-100 text-red-800 p-4 rounded mb-4">
+            {error}
+          </div>
+          <button
+            className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
+            onClick={() => router.push("/quizzes")}
+          >
+            Back to all quizzes
+          </button>
+        </div>
       </div>
     );
   }
 
   if (!quiz) {
-    return <div>Quiz not found</div>;
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="bg-card rounded-lg shadow p-6 text-center text-text-secondary">
+          Quiz not found
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-4xl mx-auto my-8 p-6 card">
-      <h1 className="text-2xl font-bold mb-2">{quiz.title}</h1>
-      {quiz.description && (
-        <p className="text-gray-600 mb-6">{quiz.description}</p>
-      )}
-
-      {!isConnected && (
-        <div className="bg-yellow-100 text-yellow-800 p-3 rounded mb-4">
-          Ansluter till servern...
-        </div>
-      )}
-
-      {quiz.status === QuizStatus.Created && (
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">Starta quiz</h2>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-medium mb-2">Quiz-kod: {quiz.pinCode}</h3>
-              <p className="text-sm mb-4">
-                Dela denna kod med deltagare så de kan ansluta till ditt quiz.
-              </p>
-
-              <button className="btn-primary w-full" onClick={handleStartQuiz}>
-                Starta quiz
-              </button>
-            </div>
-
-            {qrCode && (
-              <div className="flex flex-col items-center">
-                <h3 className="font-medium mb-2">QR-kod för att ansluta</h3>
-                <img src={qrCode} alt="QR code" className="w-40 h-40" />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {quiz.status === QuizStatus.Active && (
-        <>
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">
-                Deltagare ({participants.length})
-              </h2>
-              <button className="btn-secondary" onClick={handleEndQuiz}>
-                Avsluta quiz
-              </button>
-            </div>
-
-            <div className="bg-gray-100 rounded p-3 mb-4">
-              <p className="font-medium">Anslutningskod: {quiz.pinCode}</p>
-            </div>
-
-            {participants.length === 0 ? (
-              <p className="text-gray-500">Inga deltagare har anslutit än.</p>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {participants.map((p) => (
-                  <div
-                    key={p.id}
-                    className="bg-blue-50 px-3 py-2 rounded text-center"
-                  >
-                    {p.name}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Frågor</h2>
-
-            {quiz.questions.length === 0 ? (
-              <p className="text-gray-500">Detta quiz har inga frågor än.</p>
-            ) : (
-              <div className="space-y-4">
-                {quiz.questions.map((question, index) => (
-                  <div
-                    key={question.id}
-                    className={`p-4 rounded-lg border ${
-                      activeQuestion === question.id
-                        ? "border-green-500 bg-green-50"
-                        : question.hasResponses
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-200"
-                    }`}
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="font-medium">
-                          {index + 1}. {question.text}
-                        </h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {question.type === 0
-                            ? "Ett rätt svar"
-                            : question.type === 1
-                            ? "Flera rätta svar"
-                            : "Fritext"}
-                        </p>
-                      </div>
-
-                      <div>
-                        {activeQuestion === question.id ? (
-                          <button
-                            className="btn-secondary text-sm"
-                            onClick={handleEndQuestion}
-                          >
-                            Avsluta fråga
-                          </button>
-                        ) : (
-                          <button
-                            className="btn-primary text-sm"
-                            onClick={() => handleStartQuestion(index)}
-                            disabled={activeQuestion !== null}
-                          >
-                            Starta fråga
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {question.hasResponses &&
-                      activeQuestion !== question.id && (
-                        <div className="mt-3 pt-3 border-t">
-                          <h4 className="font-medium text-sm mb-2">
-                            Resultat:
-                          </h4>
-                          {renderQuestionResult(question)}
-                        </div>
-                      )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
-      )}
-      {quiz.status === QuizStatus.Completed && (
-        <div>
-          <div className="bg-green-100 text-green-800 p-4 rounded mb-6">
-            <h2 className="text-xl font-semibold mb-2">Quiz avslutat!</h2>
-            <p>
-              Detta quiz avslutades{" "}
-              <DateDisplay date={quiz.endedAt} formatString="PPP p" />.
-            </p>
-          </div>
-
-          <button className="btn-primary" onClick={handleViewResults}>
-            Visa resultat
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="bg-card rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-primary">{quiz.title}</h1>
+          <button
+            onClick={handleBackNavigation}
+            className="flex items-center text-primary hover:text-primary-hover transition"
+            aria-label="Back"
+          >
+            <IoArrowBack className="h-5 w-5 text-primary" />
+            <span className="hidden sm:inline">Back</span>
           </button>
         </div>
-      )}
+
+        {quiz.description && (
+          <p className="text-text-secondary mb-6">{quiz.description}</p>
+        )}
+
+        {!isConnected && (
+          <div className="bg-yellow-100 text-yellow-800 p-3 rounded mb-4">
+            Connecting to server...
+          </div>
+        )}
+
+        {quiz.status === QuizStatus.Created && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">
+              Start Quiz
+            </h2>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="font-medium mb-2 text-foreground">
+                  Quiz code: {quiz.pinCode}
+                </h3>
+                <p className="text-sm mb-4 text-text-secondary">
+                  Share this code with participants so they can join your quiz.
+                </p>
+
+                <button
+                  className="w-full bg-primary text-white py-3 px-4 rounded-md hover:bg-primary-hover transition"
+                  onClick={handleStartQuiz}
+                >
+                  Start Quiz
+                </button>
+              </div>
+
+              {qrCode && (
+                <div className="flex flex-col items-center">
+                  <h3 className="font-medium mb-2 text-foreground">
+                    QR code to join
+                  </h3>
+                  <div className="border border-border p-2 rounded-md bg-white">
+                    <img src={qrCode} alt="QR code" className="w-40 h-40" />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {quiz.status === QuizStatus.Active && (
+          <>
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-foreground">
+                  Participants ({participants.length})
+                </h2>
+                <button
+                  className="bg-secondary text-white py-2 px-4 rounded-md hover:bg-secondary-hover transition"
+                  onClick={handleEndQuiz}
+                >
+                  End Quiz
+                </button>
+              </div>
+
+              <div className="bg-accent rounded-md p-3 mb-4 border border-border">
+                <p className="font-medium text-foreground">
+                  Connection code: {quiz.pinCode}
+                </p>
+              </div>
+
+              {participants.length === 0 ? (
+                <p className="text-text-secondary">
+                  No participants have joined yet.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {participants.map((p) => (
+                    <div
+                      key={p.id}
+                      className="bg-accent px-3 py-2 rounded-md text-center border border-border text-foreground"
+                    >
+                      {p.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h2 className="text-xl font-semibold mb-4 text-foreground">
+                Questions
+              </h2>
+
+              {quiz.questions.length === 0 ? (
+                <p className="text-text-secondary">
+                  This quiz has no questions yet.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {quiz.questions.map((question, index) => (
+                    <div
+                      key={question.id}
+                      className={`p-4 rounded-lg border ${
+                        activeQuestion === question.id
+                          ? "border-green-500 bg-accent"
+                          : question.hasResponses
+                          ? "border-primary bg-accent/50"
+                          : "border-border"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h3 className="font-medium text-foreground">
+                            {index + 1}. {question.text}
+                          </h3>
+                          <p className="text-sm text-text-secondary mt-1">
+                            {question.type === 0
+                              ? "Single choice"
+                              : question.type === 1
+                              ? "Multiple choice"
+                              : "Free text"}
+                          </p>
+                        </div>
+
+                        <div>
+                          {activeQuestion === question.id ? (
+                            <button
+                              className="bg-secondary text-white py-1 px-3 rounded-md hover:bg-secondary-hover transition text-sm"
+                              onClick={handleEndQuestion}
+                            >
+                              End Question
+                            </button>
+                          ) : (
+                            <button
+                              className="bg-primary text-white py-1 px-3 rounded-md hover:bg-primary-hover transition text-sm"
+                              onClick={() => handleStartQuestion(index)}
+                              disabled={activeQuestion !== null}
+                            >
+                              Start Question
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {question.hasResponses &&
+                        activeQuestion !== question.id && (
+                          <div className="mt-3 pt-3 border-t border-border">
+                            <h4 className="font-medium text-sm mb-2 text-foreground">
+                              Results:
+                            </h4>
+                            {renderQuestionResult(question)}
+                          </div>
+                        )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+        {quiz.status === QuizStatus.Completed && (
+          <div>
+            <div className="bg-green-100 text-green-800 p-4 rounded-md mb-6">
+              <h2 className="text-xl font-semibold mb-2">Quiz completed!</h2>
+              <p>
+                This quiz was completed on{" "}
+                <DateDisplay date={quiz.endedAt} formatString="PPP p" />.
+              </p>
+            </div>
+
+            <button
+              className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
+              onClick={handleViewResults}
+            >
+              View Results
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
