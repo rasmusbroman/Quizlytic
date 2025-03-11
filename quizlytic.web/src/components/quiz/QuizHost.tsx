@@ -145,9 +145,9 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
     if (quiz?.hasCorrectAnswers) {
       return (
         <div className="space-y-1">
-          {question.answers.map((answer: Answer) => (
+          {question.answers.map((answer: Answer, index: number) => (
             <div
-              key={answer.id}
+              key={answer.id || `${question.id}-answer-${index}`}
               className={`p-2 rounded ${
                 answer.isCorrect ? "bg-green-100 border border-green-300" : ""
               }`}
@@ -163,8 +163,11 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
     } else {
       return (
         <div className="space-y-1">
-          {question.answers.map((answer: Answer) => (
-            <div key={answer.id} className="p-2">
+          {question.answers.map((answer: Answer, index: number) => (
+            <div
+              key={answer.id || `${question.id}-answer-${index}`}
+              className="p-2"
+            >
               <div className="flex justify-between">
                 <span>{answer.text}</span>
                 <span>
@@ -307,9 +310,9 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
                 </p>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {participants.map((p) => (
+                  {participants.map((p, index) => (
                     <div
-                      key={p.id}
+                      key={p.id || `${p.name}-${index}`}
                       className="bg-accent px-3 py-2 rounded-md text-center border border-border text-foreground"
                     >
                       {p.name}
@@ -330,61 +333,62 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {quiz.questions.map((question, index) => (
-                    <div
-                      key={question.id}
-                      className={`p-4 rounded-lg border ${
-                        activeQuestion === question.id
-                          ? "border-green-500 bg-accent"
-                          : question.hasResponses
-                          ? "border-primary bg-accent/50"
-                          : "border-border"
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h3 className="font-medium text-foreground">
-                            {index + 1}. {question.text}
-                          </h3>
-                          <p className="text-sm text-text-secondary mt-1">
-                            {question.type === 0
-                              ? "Single choice"
-                              : question.type === 1
-                              ? "Multiple choice"
-                              : "Free text"}
-                          </p>
-                        </div>
-
-                        <div>
-                          {activeQuestion === question.id ? (
-                            <button
-                              className="bg-secondary text-white py-1 px-3 rounded-md hover:bg-secondary-hover transition text-sm"
-                              onClick={handleEndQuestion}
-                            >
-                              End Question
-                            </button>
-                          ) : (
-                            <button
-                              className="bg-primary text-white py-1 px-3 rounded-md hover:bg-primary-hover transition text-sm"
-                              onClick={() => handleStartQuestion(index)}
-                              disabled={activeQuestion !== null}
-                            >
-                              Start Question
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      {question.hasResponses &&
-                        activeQuestion !== question.id && (
-                          <div className="mt-3 pt-3 border-t border-border">
-                            <h4 className="font-medium text-sm mb-2 text-foreground">
-                              Results:
-                            </h4>
-                            {renderQuestionResult(question)}
+                  {quiz.questions.map((question, index) => {
+                    return (
+                      <div
+                        key={question.id}
+                        className={`p-4 rounded-lg border ${
+                          activeQuestion === question.id
+                            ? "border-green-500 bg-accent"
+                            : question.hasResponses
+                            ? "border-primary bg-accent/50"
+                            : "border-border"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="font-medium text-foreground">
+                              {index + 1}. {question.text}
+                            </h3>
+                            <p className="text-sm text-text-secondary mt-1">
+                              {question.type === 0
+                                ? "Single choice"
+                                : question.type === 1
+                                ? "Multiple choice"
+                                : "Free text"}
+                            </p>
                           </div>
-                        )}
-                    </div>
-                  ))}
+                          <div>
+                            {activeQuestion === question.id ? (
+                              <button
+                                className="bg-secondary text-white py-1 px-3 rounded-md hover:bg-secondary-hover transition text-sm"
+                                onClick={handleEndQuestion}
+                              >
+                                End Question
+                              </button>
+                            ) : (
+                              <button
+                                className="bg-primary text-white py-1 px-3 rounded-md hover:bg-primary-hover transition text-sm"
+                                onClick={() => handleStartQuestion(index)}
+                                disabled={activeQuestion !== null}
+                              >
+                                Start Question
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {question.hasResponses &&
+                          activeQuestion !== question.id && (
+                            <div className="mt-3 pt-3 border-t border-border">
+                              <h4 className="font-medium text-sm mb-2 text-foreground">
+                                Results:
+                              </h4>
+                              {renderQuestionResult(question)}
+                            </div>
+                          )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

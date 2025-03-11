@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IoArrowBack, IoAdd } from "react-icons/io5";
 import { useQuizForm } from "./hooks/useQuizForm";
@@ -8,10 +8,21 @@ import QuizInfoForm from "./components/QuizInfoForm";
 import QuestionEditor from "./components/QuestionEditor";
 import QuestionsList from "./components/QuestionsList";
 import { isQuizTitleValid } from "./utils/validation";
+import { QuizMode } from "@/lib/types";
 
 export default function CreateQuizPage() {
   const router = useRouter();
   const quizForm = useQuizForm();
+  const [quizMode, setQuizMode] = useState<QuizMode>(QuizMode.RealTime);
+  const [allowAnonymous, setAllowAnonymous] = useState(false);
+
+  const handleModeChange = (mode: QuizMode) => {
+    setQuizMode(mode);
+  };
+
+  const handleAllowAnonymousChange = (value: boolean) => {
+    setAllowAnonymous(value);
+  };
 
   const handleBackNavigation = () => {
     if (window.history.length > 1) {
@@ -56,10 +67,14 @@ export default function CreateQuizPage() {
           quizDescription={quizForm.quizDescription}
           isPublic={quizForm.isPublic}
           hasCorrectAnswers={quizForm.hasCorrectAnswers}
+          quizMode={quizMode}
+          allowAnonymous={allowAnonymous}
           onQuizTitleChange={quizForm.handleQuizTitleChange}
           onQuizDescriptionChange={quizForm.handleQuizDescriptionChange}
           onVisibilityChange={quizForm.handleVisibilityChange}
           onEducationalToggle={quizForm.handleEducationalToggle}
+          onModeChange={handleModeChange}
+          onAllowAnonymousChange={handleAllowAnonymousChange}
           isQuizTitleValid={() => isQuizTitleValid(quizForm.quizTitle)}
         />
 

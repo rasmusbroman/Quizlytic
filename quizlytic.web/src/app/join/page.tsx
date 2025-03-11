@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import QuizParticipant from "@/components/quiz/QuizParticipant";
 
 export default function JoinQuizPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const initialPin = searchParams.get("pin") || "";
 
@@ -21,7 +20,12 @@ export default function JoinQuizPage() {
   };
 
   if (showParticipant) {
-    return <QuizParticipant initialPinCode={pinCode} />;
+    return (
+      <QuizParticipant
+        initialPinCode={pinCode}
+        initialParticipantName={participantName}
+      />
+    );
   }
 
   return (

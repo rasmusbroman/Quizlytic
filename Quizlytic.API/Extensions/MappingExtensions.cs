@@ -16,7 +16,9 @@ namespace Quizlytic.API.Extensions
                 quiz.Status,
                 quiz.Questions?.Count ?? 0,
                 quiz.Participants?.Count ?? 0,
-                quiz.PublicId
+                quiz.PublicId,
+                quiz.Mode,
+                quiz.AllowAnonymous
             );
         }
 
@@ -35,7 +37,9 @@ namespace Quizlytic.API.Extensions
                 quiz.Status,
                 quiz.HasCorrectAnswers,
                 quiz.Questions?.Select(q => q.ToDto()) ?? Enumerable.Empty<QuestionDto>(),
-                quiz.PublicId
+                quiz.PublicId,
+                quiz.Mode,
+                quiz.AllowAnonymous
             );
         }
 
@@ -70,7 +74,9 @@ namespace Quizlytic.API.Extensions
                 IsPublic = dto.IsPublic,
                 HasCorrectAnswers = dto.HasCorrectAnswers,
                 CreatedAt = DateTime.UtcNow,
-                Status = QuizStatus.Created
+                Status = QuizStatus.Created,
+                Mode = dto.Mode,
+                AllowAnonymous = dto.AllowAnonymous
             };
         }
 

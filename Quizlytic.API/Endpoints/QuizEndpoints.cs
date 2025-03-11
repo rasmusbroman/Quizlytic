@@ -66,6 +66,9 @@ namespace Quizlytic.API.Endpoints
                 quiz.PublicId = await GenerateUniquePublicId(db);
                 quiz.QrCodeUrl = "";
 
+                quiz.Mode = quizDto.Mode;
+                quiz.AllowAnonymous = quizDto.AllowAnonymous;
+
                 db.Quizzes.Add(quiz);
                 await db.SaveChangesAsync();
 
@@ -84,6 +87,10 @@ namespace Quizlytic.API.Endpoints
 
                 quiz.Title = quizDto.Title;
                 quiz.Description = quizDto.Description;
+                quiz.IsPublic = quizDto.IsPublic;
+                quiz.HasCorrectAnswers = quizDto.HasCorrectAnswers;
+                quiz.Mode = quizDto.Mode;
+                quiz.AllowAnonymous = quizDto.AllowAnonymous;
 
                 await db.SaveChangesAsync();
                 return Results.NoContent();

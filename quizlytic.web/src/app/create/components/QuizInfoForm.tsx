@@ -1,14 +1,19 @@
 import React from "react";
+import { QuizMode } from "@/lib/types";
 
 interface QuizInfoFormProps {
   quizTitle: string;
   quizDescription: string;
   isPublic: boolean | null;
   hasCorrectAnswers: boolean;
+  quizMode: QuizMode;
+  allowAnonymous: boolean;
   onQuizTitleChange: (value: string) => void;
   onQuizDescriptionChange: (value: string) => void;
   onVisibilityChange: (value: boolean) => void;
   onEducationalToggle: (value: boolean) => void;
+  onModeChange: (value: QuizMode) => void;
+  onAllowAnonymousChange: (value: boolean) => void;
   isQuizTitleValid: () => boolean;
 }
 
@@ -17,10 +22,14 @@ export default function QuizInfoForm({
   quizDescription,
   isPublic,
   hasCorrectAnswers,
+  quizMode,
+  allowAnonymous,
   onQuizTitleChange,
   onQuizDescriptionChange,
   onVisibilityChange,
   onEducationalToggle,
+  onModeChange,
+  onAllowAnonymousChange,
   isQuizTitleValid,
 }: QuizInfoFormProps) {
   return (
@@ -66,6 +75,59 @@ export default function QuizInfoForm({
             />
           </div>
 
+          <div>
+            <label className="block text-foreground mb-2">
+              Quiz Mode <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-6">
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="modeRealTime"
+                  name="quizMode"
+                  checked={quizMode === QuizMode.RealTime}
+                  onChange={() => onModeChange(QuizMode.RealTime)}
+                  className="mr-2"
+                />
+                <label htmlFor="modeRealTime" className="text-foreground">
+                  Real-time Quiz{" "}
+                  <span className="text-text-secondary text-sm">
+                    (host controls question progression)
+                  </span>
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="modeSelfPaced"
+                  name="quizMode"
+                  checked={quizMode === QuizMode.SelfPaced}
+                  onChange={() => onModeChange(QuizMode.SelfPaced)}
+                  className="mr-2"
+                />
+                <label htmlFor="modeSelfPaced" className="text-foreground">
+                  Self-paced Survey{" "}
+                  <span className="text-text-secondary text-sm">
+                    (participants complete at their own pace)
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+          {quizMode === QuizMode.SelfPaced && (
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="allowAnonymous"
+                checked={allowAnonymous}
+                onChange={(e) => onAllowAnonymousChange(e.target.checked)}
+                className="mr-2"
+              />
+              <label htmlFor="allowAnonymous" className="text-foreground">
+                Allow anonymous participation (no name required)
+              </label>
+            </div>
+          )}
           <div>
             <label className="block text-foreground mb-2">
               Quiz Visibility <span className="text-red-500">*</span>

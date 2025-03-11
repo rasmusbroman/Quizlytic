@@ -1,4 +1,11 @@
-import { Quiz, Question, Answer, Response, Participant } from "@/lib/types";
+import {
+  Quiz,
+  Question,
+  Answer,
+  Response,
+  Participant,
+  QuizMode,
+} from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://localhost:7066";
 
@@ -47,6 +54,8 @@ export const quizApi = {
     description: string;
     hasCorrectAnswers?: boolean;
     isPublic?: boolean;
+    mode?: QuizMode;
+    allowAnonymous?: boolean;
   }): Promise<Quiz> => {
     return fetchJson<Quiz>(`${API_URL}/api/quizzes`, {
       method: "POST",
@@ -85,6 +94,28 @@ export const quizApi = {
 
   getQrCode: async (pinCode: string): Promise<{ url: string }> => {
     return fetchJson<{ url: string }>(`${API_URL}/api/qrcode/${pinCode}`);
+  },
+
+  getSurveyQuestions: async (pinCode: string): Promise<any> => {
+    return fetchJson<any>(`${API_URL}/api/surveys/${pinCode}/questions`);
+  },
+
+  submitSurveyResponses: async (
+    pinCode: string,
+    response: {
+      participantName: string;
+      answers: {
+        questionId: number;
+        answerId?: number;
+        freeTextResponse?: string;
+      }[];
+    }
+  ): Promise<any> => {
+    return fetchJson<any>(`${API_URL}/api/surveys/${pinCode}/responses`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(response),
+    });
   },
 };
 

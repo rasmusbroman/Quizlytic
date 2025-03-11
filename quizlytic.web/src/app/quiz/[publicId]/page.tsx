@@ -21,7 +21,9 @@ export default function QuizPublicPage() {
         setQuiz(quizData);
       } catch (err) {
         console.error("Error loading quiz:", err);
-        setError("Could not load quiz. The quiz may not exist or you may not have permission to view it.");
+        setError(
+          "Could not load quiz. The quiz may not exist or you may not have permission to view it."
+        );
       } finally {
         setLoading(false);
       }

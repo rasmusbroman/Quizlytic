@@ -1,4 +1,4 @@
-import { QuestionType } from '@/lib/types';
+import { QuestionType } from "@/lib/types";
 
 export type QuizQuestion = {
   id: number;

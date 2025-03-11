@@ -2,9 +2,23 @@
 
 namespace Quizlytic.API.DTOs
 {
-    public record CreateQuizDto(string Title, string Description, bool IsPublic = false, bool HasCorrectAnswers = true);
-    public record UpdateQuizDto(string Title, string Description, bool IsPublic, bool HasCorrectAnswers);
     public record UpdateQuestionDto(string Text, string ImageUrl, QuestionType Type);
+
+    public record CreateQuizDto(
+        string Title,
+        string Description,
+        bool IsPublic = false,
+        bool HasCorrectAnswers = true,
+        QuizMode Mode = QuizMode.RealTime,
+        bool AllowAnonymous = false);
+
+    public record UpdateQuizDto(
+        string Title,
+        string Description,
+        bool IsPublic,
+        bool HasCorrectAnswers,
+        QuizMode Mode,
+        bool AllowAnonymous);
 
     public record QuizSummaryDto(
         int Id,
@@ -15,7 +29,9 @@ namespace Quizlytic.API.DTOs
         QuizStatus Status,
         int QuestionsCount,
         int ParticipantsCount,
-        string PublicId);
+        string PublicId,
+        QuizMode Mode,
+        bool AllowAnonymous);
 
     public record QuizDetailDto(
         int Id,
@@ -30,7 +46,9 @@ namespace Quizlytic.API.DTOs
         QuizStatus Status,
         bool HasCorrectAnswers,
         IEnumerable<QuestionDto> Questions,
-        string PublicId);
+        string PublicId,
+        QuizMode Mode,
+        bool AllowAnonymous);
 
     public record QuestionDto(
         int Id,
