@@ -71,6 +71,8 @@ export const quizApi = {
       description: string;
       hasCorrectAnswers?: boolean;
       isPublic?: boolean;
+      mode?: QuizMode;
+      allowAnonymous?: boolean;
     }
   ): Promise<void> => {
     await fetch(`${API_URL}/api/quizzes/${id}`, {
