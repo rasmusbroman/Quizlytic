@@ -98,7 +98,7 @@ export default function ResultsPage() {
             {filteredQuizzes.map((quiz) => (
               <div
                 key={quiz.id}
-                onClick={() => router.push(`/quizzes/${quiz.id}/results`)}
+                onClick={() => router.push(`/quiz/${quiz.publicId}/results`)}
                 className="border border-gray-200 rounded-md p-3 hover:bg-gray-50 cursor-pointer"
               >
                 <h3 className="font-medium">{quiz.title}</h3>

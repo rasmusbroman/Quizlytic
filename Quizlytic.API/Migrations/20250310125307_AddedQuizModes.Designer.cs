@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Quizlytic.API.Data;
@@ -11,9 +12,11 @@ using Quizlytic.API.Data;
 namespace Quizlytic.API.Migrations
 {
     [DbContext(typeof(QuizlyticDbContext))]
-    partial class QuizlyticDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250310125307_AddedQuizModes")]
+    partial class AddedQuizModes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

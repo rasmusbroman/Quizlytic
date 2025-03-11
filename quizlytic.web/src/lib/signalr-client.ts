@@ -229,7 +229,10 @@ export const useQuizHost = (quizId: number) => {
 export const useQuizParticipant = () => {
   const { isConnected, joinAsParticipant, submitAnswer, onEvent } =
     useSignalR();
-  const [quizInfo, setQuizInfo] = useState<{ title: string } | null>(null);
+  const [quizInfo, setQuizInfo] = useState<{
+    title: string;
+    mode: string;
+  } | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<{
     id: number;
     text: string;
@@ -237,16 +240,25 @@ export const useQuizParticipant = () => {
     type: string;
     answers: { id: number; text: string }[];
   } | null>(null);
+  const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
+  const [currentSurveyQuestionIndex, setCurrentSurveyQuestionIndex] =
+    useState(0);
+  const [surveyResponses, setSurveyResponses] = useState<
+    Map<number, { answerId?: number; freeText?: string }>
+  >(new Map());
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isConnected) return;
 
-    const removeQuizInfo = onEvent("QuizInfo", (title: string) => {
-      setQuizInfo({ title });
-      setError(null);
-    });
+    const removeQuizInfo = onEvent(
+      "QuizInfo",
+      (title: string, mode: string) => {
+        setQuizInfo({ title, mode });
+        setError(null);
+      }
+    );
 
     const removeJoinError = onEvent("JoinError", (errorMessage: string) => {
       setError(errorMessage);
@@ -279,14 +291,37 @@ export const useQuizParticipant = () => {
       setResults(null);
     });
 
+    const removeSurveyQuestions = onEvent(
+      "SurveyQuestions",
+      (questions: any[]) => {
+        setSurveyQuestions(questions);
+        if (questions.length > 0) {
+          setCurrentSurveyQuestionIndex(0);
+        }
+      }
+    );
+
+    const removeResponseSaved = onEvent(
+      "ResponseSaved",
+      (questionId: number) => {
+        if (surveyQuestions.length > currentSurveyQuestionIndex + 1) {
+          setCurrentSurveyQuestionIndex((prev) => prev + 1);
+        } else {
+          setResults({ surveyCompleted: true });
+        }
+      }
+    );
+
     return () => {
       removeQuizInfo();
       removeJoinError();
       removeQuestionStarted();
       removeQuestionEnded();
       removeQuizEnded();
+      removeSurveyQuestions();
+      removeResponseSaved();
     };
-  }, [isConnected, onEvent]);
+  }, [isConnected, onEvent, surveyQuestions, currentSurveyQuestionIndex]);
 
   const joinQuiz = async (pinCode: string, name: string) => {
     try {
@@ -303,7 +338,40 @@ export const useQuizParticipant = () => {
   ) => {
     if (currentQuestion) {
       await submitAnswer(currentQuestion.id, answerId, freeTextAnswer);
+    } else if (surveyQuestions.length > 0) {
+      const currentSurveyQuestion = surveyQuestions[currentSurveyQuestionIndex];
+      if (currentSurveyQuestion) {
+        setSurveyResponses((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(currentSurveyQuestion.id, {
+            answerId: answerId || undefined,
+            freeText: freeTextAnswer,
+          });
+          return newMap;
+        });
+
+        await submitAnswer(currentSurveyQuestion.id, answerId, freeTextAnswer);
+      }
     }
+  };
+
+  const nextSurveyQuestion = () => {
+    if (surveyQuestions.length > currentSurveyQuestionIndex + 1) {
+      setCurrentSurveyQuestionIndex((prev) => prev + 1);
+    }
+  };
+
+  const previousSurveyQuestion = () => {
+    if (currentSurveyQuestionIndex > 0) {
+      setCurrentSurveyQuestionIndex((prev) => prev - 1);
+    }
+  };
+
+  const getCurrentSurveyQuestion = () => {
+    if (surveyQuestions.length > 0) {
+      return surveyQuestions[currentSurveyQuestionIndex];
+    }
+    return null;
   };
 
   return {
@@ -314,5 +382,12 @@ export const useQuizParticipant = () => {
     isConnected,
     joinQuiz,
     submitAnswer: handleSubmitAnswer,
+    isSurveyMode: quizInfo?.mode === "SelfPaced",
+    surveyQuestions,
+    currentSurveyQuestion: getCurrentSurveyQuestion(),
+    currentSurveyQuestionIndex,
+    nextSurveyQuestion,
+    previousSurveyQuestion,
+    surveyResponses,
   };
 };

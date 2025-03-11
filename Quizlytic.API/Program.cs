@@ -14,10 +14,7 @@ namespace Quizlytic.API
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddAuthorization();
-
-            //TEMP
             builder.Services.AddEndpointsApiExplorer();
-
             builder.Services.AddOpenApi();
             builder.Services.AddSwaggerGen();
             builder.Services.AddDbContext<QuizlyticDbContext>(options =>

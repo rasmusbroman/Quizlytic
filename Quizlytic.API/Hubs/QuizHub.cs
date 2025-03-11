@@ -18,23 +18,44 @@ namespace Quizlytic.API.Hubs
             string groupName = $"quiz-{quizId}";
             await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
             await Groups.AddToGroupAsync(Context.ConnectionId, $"{groupName}-host");
-            //await Clients.Group(groupName).SendAsync("HostJoined");
         }
 
         public async Task JoinAsParticipant(string pinCode, string participantName)
         {
-            var quiz = await _context.Quizzes.FirstOrDefaultAsync(q => q.PinCode == pinCode && q.Status == QuizStatus.Active);
+            var quiz = await _context.Quizzes.FirstOrDefaultAsync(q => q.PinCode == pinCode);
 
             if (quiz == null)
             {
-                await Clients.Caller.SendAsync("JoinError", "Quiz not found or not active");
+                await Clients.Caller.SendAsync("JoinError", "Quiz not found");
                 return;
             }
+
+            if (quiz.Mode == QuizMode.RealTime && quiz.Status != QuizStatus.Active)
+            {
+                await Clients.Caller.SendAsync("JoinError", "This quiz is not currently active");
+                return;
+            }
+
+            if (quiz.Mode == QuizMode.SelfPaced &&
+                (quiz.Status == QuizStatus.Completed || quiz.Status == QuizStatus.Created))
+            {
+                await Clients.Caller.SendAsync("JoinError", "This survey is not currently available");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(participantName) && !quiz.AllowAnonymous)
+            {
+                await Clients.Caller.SendAsync("JoinError", "Name is required for this quiz");
+                return;
+            }
+
+            string effectiveName = string.IsNullOrWhiteSpace(participantName) ?
+                "Anonymous" : participantName;
 
             var participant = new Participant
             {
                 QuizId = quiz.Id,
-                Name = participantName,
+                Name = effectiveName,
                 ConnectionId = Context.ConnectionId
             };
 
@@ -43,10 +64,26 @@ namespace Quizlytic.API.Hubs
 
             string groupName = $"quiz-{quiz.Id}";
             await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
-
             await Clients.Group(groupName).SendAsync("ParticipantJoined", participant.Id, participant.Name);
+            await Clients.Caller.SendAsync("QuizInfo", quiz.Title, quiz.Mode.ToString());
 
-            await Clients.Caller.SendAsync("QuizInfo", quiz.Title);
+            if (quiz.Mode == QuizMode.SelfPaced)
+            {
+                var questions = await _context.Questions
+                    .Where(q => q.QuizId == quiz.Id)
+                    .OrderBy(q => q.OrderIndex)
+                    .Include(q => q.Answers)
+                    .ToListAsync();
+
+                await Clients.Caller.SendAsync("SurveyQuestions",
+                    questions.Select(q => new {
+                        Id = q.Id,
+                        Text = q.Text,
+                        ImageUrl = q.ImageUrl,
+                        Type = q.Type,
+                        Answers = q.Answers.Select(a => new { a.Id, a.Text }).ToList()
+                    }).ToList());
+            }
         }
 
         public async Task SubmitAnswer(int questionId, int? answerId, string freeTextAnswer)
@@ -56,6 +93,9 @@ namespace Quizlytic.API.Hubs
 
             var participant = await _context.Participants.FirstOrDefaultAsync(p => p.ConnectionId == Context.ConnectionId);
             if (participant == null) return;
+
+            var quiz = await _context.Quizzes.FindAsync(question.QuizId);
+            if (quiz == null) return;
 
             var response = new Response
             {
@@ -70,7 +110,15 @@ namespace Quizlytic.API.Hubs
 
             string groupName = $"quiz-{question.QuizId}";
 
-            await Clients.Group($"{groupName}-host").SendAsync("NewResponse", questionId, participant.Id);
+            if (quiz.Mode == QuizMode.RealTime)
+            {
+                await Clients.Group($"{groupName}-host").SendAsync("NewResponse", questionId, participant.Id);
+            }
+
+            if (quiz.Mode == QuizMode.SelfPaced)
+            {
+                await Clients.Caller.SendAsync("ResponseSaved", questionId);
+            }
         }
 
         public async Task StartQuestion(int quizId, int questionId)
@@ -119,6 +167,8 @@ namespace Quizlytic.API.Hubs
             {
                 string groupName = $"quiz-{participant.QuizId}";
                 await Clients.Group(groupName).SendAsync("ParticipantLeft", participant.Id, participant.Name);
+                participant.ConnectionId = null;
+                await _context.SaveChangesAsync();
             }
 
             await base.OnDisconnectedAsync(exception);

@@ -1,19 +1,25 @@
 import React, { useState } from "react";
 import { useQuizParticipant } from "@/lib/signalr-client";
+import { quizApi } from "@/lib/api-client";
 
 interface QuizParticipantProps {
   initialPinCode?: string;
+  initialParticipantName?: string;
 }
 
 const QuizParticipant: React.FC<QuizParticipantProps> = ({
   initialPinCode = "",
+  initialParticipantName = "",
 }) => {
   const [pinCode, setPinCode] = useState(initialPinCode);
-  const [participantName, setParticipantName] = useState("");
+  const [participantName, setParticipantName] = useState(
+    initialParticipantName
+  );
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
   const [freeTextAnswer, setFreeTextAnswer] = useState("");
   const [hasAnswered, setHasAnswered] = useState(false);
+  const [surveyCompleted, setSurveyCompleted] = useState(false);
 
   const {
     quizInfo,
@@ -23,34 +29,149 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
     isConnected,
     joinQuiz,
     submitAnswer,
+    isSurveyMode,
+    currentSurveyQuestion,
+    currentSurveyQuestionIndex,
+    surveyQuestions,
+    nextSurveyQuestion,
+    previousSurveyQuestion,
+    surveyResponses,
   } = useQuizParticipant();
+
+  const [isUsingApi, setIsUsingApi] = useState(false);
+  const [apiSurveyQuestions, setApiSurveyQuestions] = useState<any[]>([]);
+  const [apiCurrentQuestionIndex, setApiCurrentQuestionIndex] = useState(0);
+  const [apiResponses, setApiResponses] = useState<
+    Map<number, { answerId?: number; freeText?: string }>
+  >(new Map());
+  const [apiLoading, setApiLoading] = useState(false);
 
   const handleJoinQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pinCode.trim() || !participantName.trim()) return;
+    if (!pinCode.trim()) return;
 
-    await joinQuiz(pinCode, participantName);
+    if (!participantName.trim() && !isSurveyMode) {
+      setError("Please enter your name");
+      return;
+    }
+
+    setApiLoading(true);
+
+    try {
+      await joinQuiz(pinCode, participantName);
+      setIsUsingApi(false);
+    } catch (err) {
+      console.error("SignalR connection failed, falling back to API:", err);
+
+      try {
+        const surveyData = await quizApi.getSurveyQuestions(pinCode);
+        setApiSurveyQuestions(surveyData.questions);
+        setIsUsingApi(true);
+        setQuizInfo({
+          title: surveyData.quizTitle,
+          mode: "SelfPaced",
+        });
+      } catch (apiError) {
+        console.error("API fallback also failed:", apiError);
+        setError("Could not connect to the quiz. Please try again later.");
+      }
+    } finally {
+      setApiLoading(false);
+    }
   };
 
   const handleSingleChoiceAnswer = async () => {
-    if (selectedAnswer === null || !currentQuestion) return;
+    if (selectedAnswer === null) return;
 
-    await submitAnswer(selectedAnswer, undefined);
-    setHasAnswered(true);
+    if (isUsingApi) {
+      const currentQuestion = apiSurveyQuestions[apiCurrentQuestionIndex];
+      setApiResponses((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(currentQuestion.id, { answerId: selectedAnswer });
+        return newMap;
+      });
+
+      if (apiCurrentQuestionIndex < apiSurveyQuestions.length - 1) {
+        setApiCurrentQuestionIndex((prev) => prev + 1);
+        setSelectedAnswer(null);
+      } else {
+        await submitApiSurvey();
+      }
+    } else {
+      await submitAnswer(selectedAnswer, undefined);
+      setHasAnswered(true);
+    }
   };
 
   const handleMultipleChoiceAnswer = async () => {
-    if (selectedAnswers.length === 0 || !currentQuestion) return;
+    if (selectedAnswers.length === 0) return;
 
-    await submitAnswer(selectedAnswers[0], undefined);
-    setHasAnswered(true);
+    if (isUsingApi) {
+      const currentQuestion = apiSurveyQuestions[apiCurrentQuestionIndex];
+      setApiResponses((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(currentQuestion.id, { answerId: selectedAnswers[0] });
+        return newMap;
+      });
+
+      if (apiCurrentQuestionIndex < apiSurveyQuestions.length - 1) {
+        setApiCurrentQuestionIndex((prev) => prev + 1);
+        setSelectedAnswers([]);
+      } else {
+        await submitApiSurvey();
+      }
+    } else {
+      await submitAnswer(selectedAnswers[0], undefined);
+      setHasAnswered(true);
+    }
   };
 
   const handleFreeTextAnswer = async () => {
-    if (!freeTextAnswer.trim() || !currentQuestion) return;
+    if (!freeTextAnswer.trim()) return;
 
-    await submitAnswer(null, freeTextAnswer);
-    setHasAnswered(true);
+    if (isUsingApi) {
+      const currentQuestion = apiSurveyQuestions[apiCurrentQuestionIndex];
+      setApiResponses((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(currentQuestion.id, { freeText: freeTextAnswer });
+        return newMap;
+      });
+
+      if (apiCurrentQuestionIndex < apiSurveyQuestions.length - 1) {
+        setApiCurrentQuestionIndex((prev) => prev + 1);
+        setFreeTextAnswer("");
+      } else {
+        await submitApiSurvey();
+      }
+    } else {
+      await submitAnswer(null, freeTextAnswer);
+      setHasAnswered(true);
+    }
+  };
+
+  const submitApiSurvey = async () => {
+    setApiLoading(true);
+    try {
+      const answers = Array.from(apiResponses.entries()).map(
+        ([questionId, response]) => ({
+          questionId,
+          answerId: response.answerId,
+          freeTextResponse: response.freeText,
+        })
+      );
+
+      await quizApi.submitSurveyResponses(pinCode, {
+        participantName,
+        answers,
+      });
+
+      setSurveyCompleted(true);
+    } catch (err) {
+      console.error("Error submitting survey:", err);
+      setError("Failed to submit survey. Please try again.");
+    } finally {
+      setApiLoading(false);
+    }
   };
 
   const handleCheckboxChange = (answerId: number) => {
@@ -61,10 +182,10 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
     );
   };
 
-  if (!quizInfo) {
+  if (!quizInfo && !isUsingApi) {
     return (
       <div className="max-w-md mx-auto my-8 p-6 card">
-        <h1 className="text-2xl font-bold mb-6">Anslut till ett quiz</h1>
+        <h1 className="text-2xl font-bold mb-6">Join a Quiz</h1>
 
         {error && (
           <div className="bg-red-100 text-red-800 p-3 rounded mb-4">
@@ -72,66 +193,242 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
           </div>
         )}
 
-        {!isConnected && (
+        {!isConnected && !apiLoading && (
           <div className="bg-yellow-100 text-yellow-800 p-3 rounded mb-4">
-            Ansluter till servern...
+            Connecting to server...
           </div>
         )}
 
         <form onSubmit={handleJoinQuiz}>
           <div className="mb-4">
-            <label className="block text-gray-700 mb-1">Quiz-kod</label>
+            <label className="block text-gray-700 mb-1">Quiz Code</label>
             <input
               type="text"
               className="input"
               value={pinCode}
               onChange={(e) => setPinCode(e.target.value)}
-              placeholder="Ange 6-siffrig kod"
+              placeholder="Enter 6-digit code"
               required
             />
           </div>
 
           <div className="mb-6">
-            <label className="block text-gray-700 mb-1">Ditt namn</label>
+            <label className="block text-gray-700 mb-1">Your Name</label>
             <input
               type="text"
               className="input"
               value={participantName}
               onChange={(e) => setParticipantName(e.target.value)}
-              placeholder="Ange ditt namn"
-              required
+              placeholder="Enter your name"
             />
           </div>
 
           <button
             type="submit"
             className="btn-primary w-full"
-            disabled={
-              !isConnected || !pinCode.trim() || !participantName.trim()
-            }
+            disabled={!isConnected && !isUsingApi && !apiLoading}
           >
-            Anslut
+            {apiLoading ? "Connecting..." : "Join Quiz"}
           </button>
         </form>
       </div>
     );
   }
 
-  if (currentQuestion && !results) {
+  if (surveyCompleted || (results && results.surveyCompleted)) {
     return (
       <div className="max-w-xl mx-auto my-8 p-6 card">
         <div className="mb-6">
-          <h1 className="text-xl font-bold mb-1">{quizInfo.title}</h1>
-          <p className="text-gray-600">Ansluten som {participantName}</p>
+          <h1 className="text-xl font-bold mb-1">{quizInfo?.title}</h1>
+          <p className="text-gray-600">Thank you for your participation!</p>
+        </div>
+
+        <div className="bg-green-100 p-4 rounded mb-6">
+          <h2 className="text-lg font-semibold mb-2">Survey Completed</h2>
+          <p>Your responses have been successfully submitted.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSurveyMode && !isUsingApi) {
+    if (currentQuestion && !results) {
+      return (
+        <div className="max-w-xl mx-auto my-8 p-6 card">
+          <div className="mb-6">
+            <h1 className="text-xl font-bold mb-1">{quizInfo.title}</h1>
+            <p className="text-gray-600">Ansluten som {participantName}</p>
+          </div>
+
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold mb-4">{currentQuestion.text}</h2>
+
+            {currentQuestion.imageUrl && (
+              <div className="mb-4">
+                <img
+                  src={currentQuestion.imageUrl}
+                  alt="Question illustration"
+                  className="max-w-full rounded"
+                />
+              </div>
+            )}
+          </div>
+
+          {hasAnswered ? (
+            <div className="bg-green-100 text-green-800 p-4 rounded">
+              <p className="font-medium">Ditt svar har skickats!</p>
+              <p>Vänta på att värden går vidare till nästa fråga.</p>
+            </div>
+          ) : (
+            <div>
+              {currentQuestion.type === "SingleChoice" && (
+                <div className="mb-6 space-y-3">
+                  {currentQuestion.answers.map((answer) => (
+                    <div
+                      key={answer.id}
+                      className={`p-4 rounded-lg border cursor-pointer ${
+                        selectedAnswer === answer.id
+                          ? "bg-blue-100 border-blue-500"
+                          : "border-gray-200 hover:bg-gray-50"
+                      }`}
+                      onClick={() => setSelectedAnswer(answer.id)}
+                    >
+                      {answer.text}
+                    </div>
+                  ))}
+
+                  <button
+                    className="btn-primary w-full mt-4"
+                    onClick={handleSingleChoiceAnswer}
+                    disabled={selectedAnswer === null}
+                  >
+                    Skicka svar
+                  </button>
+                </div>
+              )}
+
+              {currentQuestion.type === "MultipleChoice" && (
+                <div className="mb-6 space-y-3">
+                  {currentQuestion.answers.map((answer) => (
+                    <div
+                      key={answer.id}
+                      className="flex items-center p-4 rounded-lg border hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        id={`answer-${answer.id}`}
+                        checked={selectedAnswers.includes(answer.id)}
+                        onChange={() => handleCheckboxChange(answer.id)}
+                        className="mr-3"
+                      />
+                      <label
+                        htmlFor={`answer-${answer.id}`}
+                        className="cursor-pointer flex-grow"
+                      >
+                        {answer.text}
+                      </label>
+                    </div>
+                  ))}
+
+                  <button
+                    className="btn-primary w-full mt-4"
+                    onClick={handleMultipleChoiceAnswer}
+                    disabled={selectedAnswers.length === 0}
+                  >
+                    Skicka svar
+                  </button>
+                </div>
+              )}
+
+              {currentQuestion.type === "FreeText" && (
+                <div className="mb-6">
+                  <textarea
+                    className="input mb-4"
+                    rows={4}
+                    value={freeTextAnswer}
+                    onChange={(e) => setFreeTextAnswer(e.target.value)}
+                    placeholder="Skriv ditt svar här..."
+                  />
+
+                  <button
+                    className="btn-primary w-full"
+                    onClick={handleFreeTextAnswer}
+                    disabled={!freeTextAnswer.trim()}
+                  >
+                    Skicka svar
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (results) {
+      return (
+        <div className="max-w-xl mx-auto my-8 p-6 card">
+          <div className="mb-6">
+            <h1 className="text-xl font-bold mb-1">{quizInfo.title}</h1>
+            <p className="text-gray-600">Ansluten som {participantName}</p>
+          </div>
+
+          <div className="bg-blue-100 p-4 rounded mb-6">
+            <h2 className="text-lg font-semibold mb-2">Resultat</h2>
+            <p>Väntar på nästa fråga...</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-w-xl mx-auto my-8 p-6 card">
+        <div className="mb-6">
+          <h1 className="text-xl font-bold mb-1">{quizInfo?.title}</h1>
+          <p className="text-gray-600">Connected as {participantName}</p>
+        </div>
+
+        <div className="text-center p-8">
+          <h2 className="text-xl font-semibold mb-2">
+            Waiting for the quiz to start...
+          </h2>
+          <p className="text-gray-600">The host will start the quiz soon.</p>
+        </div>
+      </div>
+    );
+  }
+  const activeSurveyQuestions = isUsingApi
+    ? apiSurveyQuestions
+    : surveyQuestions;
+  const currentIndex = isUsingApi
+    ? apiCurrentQuestionIndex
+    : currentSurveyQuestionIndex;
+  const activeQuestion = isUsingApi
+    ? apiSurveyQuestions[apiCurrentQuestionIndex]
+    : currentSurveyQuestion;
+
+  if (activeSurveyQuestions.length > 0 && activeQuestion) {
+    return (
+      <div className="max-w-xl mx-auto my-8 p-6 card">
+        <div className="mb-6">
+          <h1 className="text-xl font-bold mb-1">{quizInfo?.title}</h1>
+          <p className="text-gray-600">
+            {participantName
+              ? `Participant: ${participantName}`
+              : "Anonymous participant"}
+          </p>
+          <div className="mt-2 text-sm text-gray-500">
+            Question {currentIndex + 1} of {activeSurveyQuestions.length}
+          </div>
         </div>
 
         <div className="mb-6">
-          <h2 className="text-2xl font-bold mb-4">{currentQuestion.text}</h2>
+          <h2 className="text-2xl font-bold mb-4">{activeQuestion.text}</h2>
 
-          {currentQuestion.imageUrl && (
+          {activeQuestion.imageUrl && (
             <div className="mb-4">
               <img
-                src={currentQuestion.imageUrl}
+                src={activeQuestion.imageUrl}
                 alt="Question illustration"
                 className="max-w-full rounded"
               />
@@ -139,108 +436,88 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
           )}
         </div>
 
-        {hasAnswered ? (
-          <div className="bg-green-100 text-green-800 p-4 rounded">
-            <p className="font-medium">Ditt svar har skickats!</p>
-            <p>Vänta på att värden går vidare till nästa fråga.</p>
-          </div>
-        ) : (
-          <div>
-            {currentQuestion.type === "SingleChoice" && (
-              <div className="mb-6 space-y-3">
-                {currentQuestion.answers.map((answer) => (
-                  <div
-                    key={answer.id}
-                    className={`p-4 rounded-lg border cursor-pointer ${
-                      selectedAnswer === answer.id
-                        ? "bg-blue-100 border-blue-500"
-                        : "border-gray-200 hover:bg-gray-50"
-                    }`}
-                    onClick={() => setSelectedAnswer(answer.id)}
-                  >
-                    {answer.text}
-                  </div>
-                ))}
+        <div className="mb-6">
+          {activeQuestion.type === 0 && (
+            <div className="space-y-3">
+              {activeQuestion.answers.map((answer) => (
+                <div
+                  key={answer.id}
+                  className={`p-4 rounded-lg border cursor-pointer ${
+                    selectedAnswer === answer.id
+                      ? "bg-blue-100 border-blue-500"
+                      : "border-gray-200 hover:bg-gray-50"
+                  }`}
+                  onClick={() => setSelectedAnswer(answer.id)}
+                >
+                  {answer.text}
+                </div>
+              ))}
 
+              <div className="flex justify-between mt-4">
                 <button
-                  className="btn-primary w-full mt-4"
+                  className="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition"
+                  onClick={() =>
+                    isUsingApi
+                      ? setApiCurrentQuestionIndex(
+                          Math.max(0, apiCurrentQuestionIndex - 1)
+                        )
+                      : previousSurveyQuestion()
+                  }
+                  disabled={currentIndex === 0}
+                >
+                  Previous
+                </button>
+                <button
+                  className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
                   onClick={handleSingleChoiceAnswer}
                   disabled={selectedAnswer === null}
                 >
-                  Skicka svar
+                  {currentIndex === activeSurveyQuestions.length - 1
+                    ? "Submit"
+                    : "Next"}
                 </button>
               </div>
-            )}
+            </div>
+          )}
 
-            {currentQuestion.type === "MultipleChoice" && (
-              <div className="mb-6 space-y-3">
-                {currentQuestion.answers.map((answer) => (
-                  <div
-                    key={answer.id}
-                    className="flex items-center p-4 rounded-lg border hover:bg-gray-50"
-                  >
-                    <input
-                      type="checkbox"
-                      id={`answer-${answer.id}`}
-                      checked={selectedAnswers.includes(answer.id)}
-                      onChange={() => handleCheckboxChange(answer.id)}
-                      className="mr-3"
-                    />
-                    <label
-                      htmlFor={`answer-${answer.id}`}
-                      className="cursor-pointer flex-grow"
-                    >
-                      {answer.text}
-                    </label>
-                  </div>
-                ))}
+          {activeQuestion.type === 1 && <div>{}</div>}
 
+          {activeQuestion.type === 2 && (
+            <div>
+              <textarea
+                className="w-full border border-gray-300 rounded-md px-4 py-3 mb-4"
+                rows={4}
+                value={freeTextAnswer}
+                onChange={(e) => setFreeTextAnswer(e.target.value)}
+                placeholder="Enter your answer here..."
+              />
+
+              <div className="flex justify-between">
                 <button
-                  className="btn-primary w-full mt-4"
-                  onClick={handleMultipleChoiceAnswer}
-                  disabled={selectedAnswers.length === 0}
+                  className="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition"
+                  onClick={() =>
+                    isUsingApi
+                      ? setApiCurrentQuestionIndex(
+                          Math.max(0, apiCurrentQuestionIndex - 1)
+                        )
+                      : previousSurveyQuestion()
+                  }
+                  disabled={currentIndex === 0}
                 >
-                  Skicka svar
+                  Previous
                 </button>
-              </div>
-            )}
-
-            {currentQuestion.type === "FreeText" && (
-              <div className="mb-6">
-                <textarea
-                  className="input mb-4"
-                  rows={4}
-                  value={freeTextAnswer}
-                  onChange={(e) => setFreeTextAnswer(e.target.value)}
-                  placeholder="Skriv ditt svar här..."
-                />
-
                 <button
-                  className="btn-primary w-full"
+                  className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
                   onClick={handleFreeTextAnswer}
                   disabled={!freeTextAnswer.trim()}
                 >
-                  Skicka svar
+                  {currentIndex === activeSurveyQuestions.length - 1
+                    ? "Submit"
+                    : "Next"}
                 </button>
               </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (results) {
-    return (
-      <div className="max-w-xl mx-auto my-8 p-6 card">
-        <div className="mb-6">
-          <h1 className="text-xl font-bold mb-1">{quizInfo.title}</h1>
-          <p className="text-gray-600">Ansluten som {participantName}</p>
-        </div>
-
-        <div className="bg-blue-100 p-4 rounded mb-6">
-          <h2 className="text-lg font-semibold mb-2">Resultat</h2>
-          <p>Väntar på nästa fråga...</p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -248,18 +525,9 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
 
   return (
     <div className="max-w-xl mx-auto my-8 p-6 card">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold mb-1">{quizInfo.title}</h1>
-        <p className="text-gray-600">Ansluten som {participantName}</p>
-      </div>
-
-      <div className="text-center p-8">
-        <h2 className="text-xl font-semibold mb-2">
-          Väntar på att quizet ska starta...
-        </h2>
-        <p className="text-gray-600">
-          Värden kommer snart att starta en fråga.
-        </p>
+      <div className="text-center p-4">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+        <p className="mt-2 text-text-secondary">Loading quiz content...</p>
       </div>
     </div>
   );

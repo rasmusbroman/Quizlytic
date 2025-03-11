@@ -12,7 +12,6 @@ import { isQuizTitleValid } from "./utils/validation";
 export default function CreateQuizPage() {
   const router = useRouter();
   const quizForm = useQuizForm();
-
   const handleBackNavigation = () => {
     if (window.history.length > 1) {
       router.back();
@@ -45,9 +44,14 @@ export default function CreateQuizPage() {
 
         {quizForm.showValidationErrors && quizForm.error && (
           <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-md">
-            {quizForm.error.split(". ").map((err, index) => (
-              <p key={index}>{err}</p>
-            ))}
+            <h3 className="font-semibold mb-2">
+              Please fix the following issues:
+            </h3>
+            <ul className="list-disc pl-5">
+              {quizForm.error.split(". ").map((err, index) => (
+                <li key={index}>{err}</li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -56,10 +60,14 @@ export default function CreateQuizPage() {
           quizDescription={quizForm.quizDescription}
           isPublic={quizForm.isPublic}
           hasCorrectAnswers={quizForm.hasCorrectAnswers}
+          quizMode={quizForm.quizMode}
+          allowAnonymous={quizForm.allowAnonymous}
           onQuizTitleChange={quizForm.handleQuizTitleChange}
           onQuizDescriptionChange={quizForm.handleQuizDescriptionChange}
           onVisibilityChange={quizForm.handleVisibilityChange}
           onEducationalToggle={quizForm.handleEducationalToggle}
+          onModeChange={quizForm.handleModeChange}
+          onAllowAnonymousChange={quizForm.setAllowAnonymous}
           isQuizTitleValid={() => isQuizTitleValid(quizForm.quizTitle)}
         />
 

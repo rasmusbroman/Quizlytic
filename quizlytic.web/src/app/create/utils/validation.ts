@@ -1,4 +1,4 @@
-import { QuestionType } from '@/lib/types';
+import { QuestionType, QuizMode } from "@/lib/types";
 
 export type QuizQuestion = {
   id: number;
@@ -6,6 +6,10 @@ export type QuizQuestion = {
   type: QuestionType;
   options: { text: string; isCorrect: boolean }[];
   isComplete: boolean;
+};
+
+export const isQuizModeSelected = (quizMode: QuizMode | undefined): boolean => {
+  return quizMode !== undefined;
 };
 
 export const validateQuestion = (
@@ -69,6 +73,7 @@ export const findIncompleteQuestion = (
 export const validateQuizForm = (
   quizTitle: string,
   isPublic: boolean | null,
+  quizMode: QuizMode | undefined,
   questions: QuizQuestion[],
   hasCorrectAnswers: boolean
 ): string[] => {
@@ -82,20 +87,21 @@ export const validateQuizForm = (
     errors.push("Please choose whether this quiz should be public or private");
   }
 
-  if (questions.length === 0) {
-    errors.push("Please add at least one question to your quiz");
+  if (!isQuizModeSelected(quizMode)) {
+    errors.push(
+      "Please select a quiz mode (Real-time Quiz or Self-paced Survey)"
+    );
   }
 
-  const incompleteQuestion = findIncompleteQuestion(
-    questions,
-    hasCorrectAnswers
-  );
-  if (incompleteQuestion) {
-    errors.push(
-      `Please complete question ${incompleteQuestion.index + 1}: ${
-        incompleteQuestion.message
-      }`
-    );
+  if (questions.length === 0) {
+    errors.push("Please add at least one question to your quiz");
+  } else {
+    for (let i = 0; i < questions.length; i++) {
+      const validation = validateQuestion(questions[i], hasCorrectAnswers);
+      if (!validation.valid) {
+        errors.push(`Please complete question ${i + 1}: ${validation.message}`);
+      }
+    }
   }
 
   return errors;

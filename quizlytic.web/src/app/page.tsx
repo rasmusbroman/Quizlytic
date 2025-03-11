@@ -1,48 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { quizApi } from "@/lib/api-client";
-import { Quiz, QuizStatus } from "@/lib/types";
-import DateDisplay from "@/components/DateDisplay";
-import { IoSearch } from "react-icons/io5";
+import { QuizStatus } from "@/lib/types";
+import SearchInput from "@/components/ui/SearchInput";
+import QuizCard from "@/components/quiz/QuizCard";
+import { useActiveQuizzes } from "@/app/hooks/useActiveQuizzes";
 
 export default function HomePage() {
   const router = useRouter();
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const { quizzes, isLoading, error, searchQuery, setSearchQuery } = useActiveQuizzes(6);
 
-  useEffect(() => {
-    const loadQuizzes = async () => {
-      try {
-        const data = await quizApi.getAll(true);
-        setQuizzes(data);
-      } catch (err) {
-        console.error("Error loading quizzes:", err);
-        setError("Could not load quizzes. Please check your connection.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadQuizzes();
-  }, []);
-
-  const activeQuizzes = quizzes
-    .filter((quiz) => quiz.status === QuizStatus.Active && quiz.isPublic)
-    .sort((a, b) => {
-      const dateA = new Date(a.createdAt).getTime();
-      const dateB = new Date(b.createdAt).getTime();
-      return dateB - dateA;
-    });
-
-  const filteredQuizzes = activeQuizzes.filter((quiz) =>
-    quiz.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const displayQuizzes = filteredQuizzes.slice(0, 6);
   const handleShowAllQuizzes = () => {
     localStorage.setItem(
       "quizFilter",
@@ -95,18 +63,11 @@ export default function HomePage() {
       </div>
 
       <div className="bg-card rounded-lg shadow p-6 mb-8">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search active public quizzes..."
-            className="w-full border border-border rounded-md px-4 py-3 pr-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <div className="absolute right-3 top-3 text-primary">
-            <IoSearch className="h-6 w-6" />
-          </div>
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search active public quizzes..."
+        />
       </div>
 
       <div className="bg-card rounded-lg shadow p-6 mb-8">
@@ -131,28 +92,14 @@ export default function HomePage() {
           <div className="bg-red-100 text-red-800 p-4 rounded mb-4">
             {error}
           </div>
-        ) : displayQuizzes.length > 0 ? (
+        ) : quizzes.length > 0 ? (
           <div className="space-y-4">
-            {displayQuizzes.map((quiz) => (
-              <div
-                key={quiz.id}
-                onClick={() => router.push(`/quizzes/${quiz.id}`)}
-                className="border border-border rounded-md p-4 hover:bg-accent cursor-pointer transition"
-              >
-                <div className="flex justify-between items-center">
-                  <h3 className="font-medium text-foreground">{quiz.title}</h3>
-                  <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                    Active
-                  </span>
-                </div>
-                <p className="text-text-secondary mt-1">
-                  {quiz.questionsCount} questions
-                </p>
-                <p className="text-xs text-text-secondary mt-2">
-                  Created{" "}
-                  <DateDisplay date={quiz.createdAt} formatString="PPp" />
-                </p>
-              </div>
+            {quizzes.map((quiz) => (
+              <QuizCard 
+                key={quiz.id} 
+                quiz={quiz} 
+                onClick={(id) => router.push(`/quizzes/${id}`)} 
+              />
             ))}
           </div>
         ) : (

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Quizlytic.API.Data;
@@ -11,9 +12,11 @@ using Quizlytic.API.Data;
 namespace Quizlytic.API.Migrations
 {
     [DbContext(typeof(QuizlyticDbContext))]
-    partial class QuizlyticDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250310110344_ChangedPublicQuizId")]
+    partial class ChangedPublicQuizId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -116,9 +119,6 @@ namespace Quizlytic.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<bool>("AllowAnonymous")
-                        .HasColumnType("boolean");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -134,9 +134,6 @@ namespace Quizlytic.API.Migrations
 
                     b.Property<bool>("IsPublic")
                         .HasColumnType("boolean");
-
-                    b.Property<int>("Mode")
-                        .HasColumnType("integer");
 
                     b.Property<string>("PinCode")
                         .IsRequired()

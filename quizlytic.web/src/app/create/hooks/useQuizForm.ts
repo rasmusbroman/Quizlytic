@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { quizApi, questionApi } from "@/lib/api-client";
+import { QuizMode } from "@/lib/types";
 import {
   QuizQuestion,
   validateQuestion,
@@ -10,6 +11,8 @@ import {
 export const useQuizForm = () => {
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
+  const [quizMode, setQuizMode] = useState<QuizMode | undefined>(undefined);
+  const [allowAnonymous, setAllowAnonymous] = useState(false);
   const [hasCorrectAnswers, setHasCorrectAnswers] = useState(false);
   const [isPublic, setIsPublic] = useState<boolean | null>(null);
   const [questions, setQuestions] = useState<QuizQuestion[]>([
@@ -58,6 +61,7 @@ export const useQuizForm = () => {
       const errors = validateQuizForm(
         quizTitle,
         isPublic,
+        quizMode,
         questions,
         hasCorrectAnswers
       );
@@ -71,6 +75,7 @@ export const useQuizForm = () => {
   }, [
     quizTitle,
     isPublic,
+    quizMode,
     questions,
     hasCorrectAnswers,
     hasAttemptedSave,
@@ -92,6 +97,10 @@ export const useQuizForm = () => {
       updatedQuestions[currentQuestion].options.splice(index, 1);
       setQuestions(updatedQuestions);
     }
+  };
+
+  const handleModeChange = (value: QuizMode) => {
+    setQuizMode(value);
   };
 
   const handleQuizTitleChange = (value: string) => {
@@ -226,16 +235,18 @@ export const useQuizForm = () => {
 
   const saveQuiz = async () => {
     setHasAttemptedSave(true);
-    setShowValidationErrors(true);
 
     const errors = validateQuizForm(
       quizTitle,
       isPublic,
+      quizMode,
       questions,
       hasCorrectAnswers
     );
+
     if (errors.length > 0) {
       setError(errors.join(". "));
+      setShowValidationErrors(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return false;
     }
@@ -250,6 +261,8 @@ export const useQuizForm = () => {
         description: quizDescription || "",
         hasCorrectAnswers: hasCorrectAnswers,
         isPublic: isPublic || false,
+        mode: quizMode!,
+        allowAnonymous: allowAnonymous,
       });
       console.log("Quiz created successfully:", quiz);
 
@@ -281,7 +294,7 @@ export const useQuizForm = () => {
       }
 
       return quiz.id;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error creating quiz:", error);
       setError("Could not create quiz. Please try again later.");
       return false;
@@ -292,14 +305,21 @@ export const useQuizForm = () => {
 
   const isFormValid = () => {
     return (
-      validateQuizForm(quizTitle, isPublic, questions, hasCorrectAnswers)
-        .length === 0
+      validateQuizForm(
+        quizTitle,
+        isPublic,
+        quizMode,
+        questions,
+        hasCorrectAnswers
+      ).length === 0
     );
   };
 
   return {
     quizTitle,
     quizDescription,
+    quizMode,
+    allowAnonymous,
     hasCorrectAnswers,
     isPublic,
     questions,
@@ -308,6 +328,8 @@ export const useQuizForm = () => {
     error,
     showValidationErrors,
 
+    handleModeChange,
+    setAllowAnonymous,
     handleQuizTitleChange,
     handleQuizDescriptionChange,
     handleVisibilityChange,
