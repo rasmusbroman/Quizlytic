@@ -12,6 +12,7 @@ export const useQuizForm = () => {
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
   const [quizMode, setQuizMode] = useState<QuizMode | undefined>(undefined);
+  const [allowAnonymous, setAllowAnonymous] = useState(false);
   const [hasCorrectAnswers, setHasCorrectAnswers] = useState(false);
   const [isPublic, setIsPublic] = useState<boolean | null>(null);
   const [questions, setQuestions] = useState<QuizQuestion[]>([
@@ -60,6 +61,7 @@ export const useQuizForm = () => {
       const errors = validateQuizForm(
         quizTitle,
         isPublic,
+        quizMode,
         questions,
         hasCorrectAnswers
       );
@@ -73,6 +75,7 @@ export const useQuizForm = () => {
   }, [
     quizTitle,
     isPublic,
+    quizMode,
     questions,
     hasCorrectAnswers,
     hasAttemptedSave,
@@ -96,8 +99,8 @@ export const useQuizForm = () => {
     }
   };
 
-  const handleModeChange = (mode: QuizMode) => {
-    setQuizMode(mode);
+  const handleModeChange = (value: QuizMode) => {
+    setQuizMode(value);
   };
 
   const handleQuizTitleChange = (value: string) => {
@@ -232,7 +235,6 @@ export const useQuizForm = () => {
 
   const saveQuiz = async () => {
     setHasAttemptedSave(true);
-    setShowValidationErrors(true);
 
     const errors = validateQuizForm(
       quizTitle,
@@ -241,8 +243,10 @@ export const useQuizForm = () => {
       questions,
       hasCorrectAnswers
     );
+
     if (errors.length > 0) {
       setError(errors.join(". "));
+      setShowValidationErrors(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return false;
     }
@@ -258,6 +262,7 @@ export const useQuizForm = () => {
         hasCorrectAnswers: hasCorrectAnswers,
         isPublic: isPublic || false,
         mode: quizMode!,
+        allowAnonymous: allowAnonymous,
       });
       console.log("Quiz created successfully:", quiz);
 
@@ -314,6 +319,7 @@ export const useQuizForm = () => {
     quizTitle,
     quizDescription,
     quizMode,
+    allowAnonymous,
     hasCorrectAnswers,
     isPublic,
     questions,
@@ -323,6 +329,7 @@ export const useQuizForm = () => {
     showValidationErrors,
 
     handleModeChange,
+    setAllowAnonymous,
     handleQuizTitleChange,
     handleQuizDescriptionChange,
     handleVisibilityChange,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
 import { IoArrowBack, IoAdd } from "react-icons/io5";
 import { useQuizForm } from "./hooks/useQuizForm";
@@ -8,17 +8,10 @@ import QuizInfoForm from "./components/QuizInfoForm";
 import QuestionEditor from "./components/QuestionEditor";
 import QuestionsList from "./components/QuestionsList";
 import { isQuizTitleValid } from "./utils/validation";
-import { QuizMode } from "@/lib/types";
 
 export default function CreateQuizPage() {
   const router = useRouter();
   const quizForm = useQuizForm();
-  const [allowAnonymous, setAllowAnonymous] = useState(false);
-
-  const handleAllowAnonymousChange = (value: boolean) => {
-    setAllowAnonymous(value);
-  };
-
   const handleBackNavigation = () => {
     if (window.history.length > 1) {
       router.back();
@@ -51,9 +44,14 @@ export default function CreateQuizPage() {
 
         {quizForm.showValidationErrors && quizForm.error && (
           <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-md">
-            {quizForm.error.split(". ").map((err, index) => (
-              <p key={index}>{err}</p>
-            ))}
+            <h3 className="font-semibold mb-2">
+              Please fix the following issues:
+            </h3>
+            <ul className="list-disc pl-5">
+              {quizForm.error.split(". ").map((err, index) => (
+                <li key={index}>{err}</li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -63,13 +61,13 @@ export default function CreateQuizPage() {
           isPublic={quizForm.isPublic}
           hasCorrectAnswers={quizForm.hasCorrectAnswers}
           quizMode={quizForm.quizMode}
-          allowAnonymous={allowAnonymous}
+          allowAnonymous={quizForm.allowAnonymous}
           onQuizTitleChange={quizForm.handleQuizTitleChange}
           onQuizDescriptionChange={quizForm.handleQuizDescriptionChange}
           onVisibilityChange={quizForm.handleVisibilityChange}
           onEducationalToggle={quizForm.handleEducationalToggle}
           onModeChange={quizForm.handleModeChange}
-          onAllowAnonymousChange={handleAllowAnonymousChange}
+          onAllowAnonymousChange={quizForm.setAllowAnonymous}
           isQuizTitleValid={() => isQuizTitleValid(quizForm.quizTitle)}
         />
 
