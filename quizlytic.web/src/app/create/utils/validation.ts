@@ -1,4 +1,4 @@
-import { QuestionType } from "@/lib/types";
+import { QuestionType, QuizMode } from "@/lib/types";
 
 export type QuizQuestion = {
   id: number;
@@ -6,6 +6,10 @@ export type QuizQuestion = {
   type: QuestionType;
   options: { text: string; isCorrect: boolean }[];
   isComplete: boolean;
+};
+
+export const isQuizModeSelected = (quizMode: QuizMode | undefined): boolean => {
+  return quizMode !== undefined;
 };
 
 export const validateQuestion = (
@@ -69,6 +73,7 @@ export const findIncompleteQuestion = (
 export const validateQuizForm = (
   quizTitle: string,
   isPublic: boolean | null,
+  quizMode: QuizMode | undefined,
   questions: QuizQuestion[],
   hasCorrectAnswers: boolean
 ): string[] => {

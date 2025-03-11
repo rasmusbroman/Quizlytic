@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { quizApi, questionApi } from "@/lib/api-client";
+import { QuizMode } from "@/lib/types";
 import {
   QuizQuestion,
   validateQuestion,
@@ -10,6 +11,7 @@ import {
 export const useQuizForm = () => {
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
+  const [quizMode, setQuizMode] = useState<QuizMode | undefined>(undefined);
   const [hasCorrectAnswers, setHasCorrectAnswers] = useState(false);
   const [isPublic, setIsPublic] = useState<boolean | null>(null);
   const [questions, setQuestions] = useState<QuizQuestion[]>([
@@ -92,6 +94,10 @@ export const useQuizForm = () => {
       updatedQuestions[currentQuestion].options.splice(index, 1);
       setQuestions(updatedQuestions);
     }
+  };
+
+  const handleModeChange = (mode: QuizMode) => {
+    setQuizMode(mode);
   };
 
   const handleQuizTitleChange = (value: string) => {
@@ -231,6 +237,7 @@ export const useQuizForm = () => {
     const errors = validateQuizForm(
       quizTitle,
       isPublic,
+      quizMode,
       questions,
       hasCorrectAnswers
     );
@@ -250,6 +257,7 @@ export const useQuizForm = () => {
         description: quizDescription || "",
         hasCorrectAnswers: hasCorrectAnswers,
         isPublic: isPublic || false,
+        mode: quizMode!,
       });
       console.log("Quiz created successfully:", quiz);
 
@@ -281,7 +289,7 @@ export const useQuizForm = () => {
       }
 
       return quiz.id;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error creating quiz:", error);
       setError("Could not create quiz. Please try again later.");
       return false;
@@ -292,14 +300,20 @@ export const useQuizForm = () => {
 
   const isFormValid = () => {
     return (
-      validateQuizForm(quizTitle, isPublic, questions, hasCorrectAnswers)
-        .length === 0
+      validateQuizForm(
+        quizTitle,
+        isPublic,
+        quizMode,
+        questions,
+        hasCorrectAnswers
+      ).length === 0
     );
   };
 
   return {
     quizTitle,
     quizDescription,
+    quizMode,
     hasCorrectAnswers,
     isPublic,
     questions,
@@ -308,6 +322,7 @@ export const useQuizForm = () => {
     error,
     showValidationErrors,
 
+    handleModeChange,
     handleQuizTitleChange,
     handleQuizDescriptionChange,
     handleVisibilityChange,

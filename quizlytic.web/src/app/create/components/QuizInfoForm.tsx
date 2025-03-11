@@ -6,7 +6,7 @@ interface QuizInfoFormProps {
   quizDescription: string;
   isPublic: boolean | null;
   hasCorrectAnswers: boolean;
-  quizMode: QuizMode;
+  quizMode: QuizMode | undefined;
   allowAnonymous: boolean;
   onQuizTitleChange: (value: string) => void;
   onQuizDescriptionChange: (value: string) => void;
