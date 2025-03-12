@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   IoArrowBack,
   IoSave,
@@ -280,10 +281,11 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
                 <div className="flex flex-col items-center">
                   <h3 className="font-medium mb-2">QR Code</h3>
                   <div className="border border-border p-2 rounded-md bg-white">
-                    <img
+                    <Image
                       src={qrCode}
+                      width={125}
+                      height={125}
                       alt="QR code to join quiz"
-                      className="w-40 h-40"
                     />
                   </div>
                 </div>

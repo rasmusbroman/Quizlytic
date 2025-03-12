@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import QRCode from "qrcode";
 import { useQuizHost, ConnectionState } from "@/lib/signalr-client";
 import { quizApi } from "@/lib/api-client";
@@ -365,16 +366,36 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
               </button>
             </div>
             <div className="bg-accent rounded-md p-3 mb-4 border border-border">
-              <p className="font-medium text-foreground">
-                Connection code: {quiz.pinCode}
-              </p>
-              <button
-                onClick={handleCopyJoinLink}
-                className="flex items-center text-primary hover:text-primary-hover transition mt-2"
-              >
-                <IoClipboard className="h-5 w-5 mr-1" />
-                {linkCopied ? "Copied!" : "Copy Join Link"}
-              </button>
+              <div className="grid md:grid-cols-2 gap-4 items-center">
+                <div>
+                  <p className="font-medium text-foreground">
+                    Connection code: {quiz.pinCode}
+                  </p>
+                  <button
+                    onClick={handleCopyJoinLink}
+                    className="flex items-center text-primary hover:text-primary-hover transition mt-2"
+                  >
+                    <IoClipboard className="h-5 w-5 mr-1" />
+                    {linkCopied ? "Copied!" : "Copy Join Link"}
+                  </button>
+                </div>
+
+                {qrCode && (
+                  <div className="flex flex-col items-center">
+                    <div className="border border-border p-2 rounded-md bg-white">
+                      <Image
+                        src={qrCode}
+                        width={125}
+                        height={125}
+                        alt="QR code to join quiz"
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-text-secondary">
+                      Scan to join
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
             {participants.length === 0 ? (
               <p className="text-text-secondary">
