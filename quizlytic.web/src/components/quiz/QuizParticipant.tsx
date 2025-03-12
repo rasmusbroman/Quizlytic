@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { useQuizParticipant } from "@/lib/signalr-client";
+import { useQuizParticipant, ConnectionState } from "@/lib/signalr-client";
 import { quizApi } from "@/lib/api-client";
+import ConnectionStatusIndicator from "@/components/common/ConnectionStatusIndicator";
 
 interface QuizParticipantProps {
   initialPinCode?: string;
@@ -27,8 +28,11 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
     results,
     error,
     isConnected,
+    connectionStatus,
+    joinStatus,
     joinQuiz,
     submitAnswer,
+    reconnect,
     isSurveyMode,
     currentSurveyQuestion,
     currentSurveyQuestionIndex,
@@ -45,6 +49,22 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
     Map<number, { answerId?: number; freeText?: string }>
   >(new Map());
   const [apiLoading, setApiLoading] = useState(false);
+
+  const renderConnectionStatus = () => {
+    if (connectionStatus === ConnectionState.Connected && !error) {
+      return null;
+    }
+
+    return (
+      <div className="mb-4">
+        <ConnectionStatusIndicator
+          status={connectionStatus}
+          error={error}
+          onReconnect={reconnect}
+        />
+      </div>
+    );
+  };
 
   const handleJoinQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,50 +207,57 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
       <div className="max-w-md mx-auto my-8 p-6 card">
         <h1 className="text-2xl font-bold mb-6">Join a Quiz</h1>
 
-        {error && (
-          <div className="bg-red-100 text-red-800 p-3 rounded mb-4">
-            {error}
-          </div>
-        )}
+        {renderConnectionStatus()}
 
-        {!isConnected && !apiLoading && (
-          <div className="bg-yellow-100 text-yellow-800 p-3 rounded mb-4">
-            Connecting to server...
+        {joinStatus === "pending" ? (
+          <div className="text-center p-4">
+            <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary mb-2"></div>
+            <p>Joining quiz...</p>
           </div>
-        )}
-
-        <form onSubmit={handleJoinQuiz}>
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-1">Quiz Code</label>
-            <input
-              type="text"
-              className="input"
-              value={pinCode}
-              onChange={(e) => setPinCode(e.target.value)}
-              placeholder="Enter 6-digit code"
-              required
-            />
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-gray-700 mb-1">Your Name</label>
-            <input
-              type="text"
-              className="input"
-              value={participantName}
-              onChange={(e) => setParticipantName(e.target.value)}
-              placeholder="Enter your name"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="btn-primary w-full"
-            disabled={!isConnected && !isUsingApi && !apiLoading}
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              joinQuiz(pinCode, participantName);
+            }}
           >
-            {apiLoading ? "Connecting..." : "Join Quiz"}
-          </button>
-        </form>
+            <div className="mb-4">
+              <label className="block text-gray-700 mb-1">Quiz Code</label>
+              <input
+                type="text"
+                className="input"
+                value={pinCode}
+                onChange={(e) => setPinCode(e.target.value)}
+                placeholder="Enter 6-digit code"
+                required
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-gray-700 mb-1">Your Name</label>
+              <input
+                type="text"
+                className="input"
+                value={participantName}
+                onChange={(e) => setParticipantName(e.target.value)}
+                placeholder="Enter your name"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="btn-primary w-full"
+              disabled={
+                joinStatus === "pending" ||
+                connectionStatus === ConnectionState.Connecting
+              }
+            >
+              {connectionStatus !== ConnectionState.Connected
+                ? "Connect & Join Quiz"
+                : "Join Quiz"}
+            </button>
+          </form>
+        )}
       </div>
     );
   }
