@@ -2,12 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import QRCode from "qrcode";
 import { useQuizHost, ConnectionState } from "@/lib/signalr-client";
 import { quizApi } from "@/lib/api-client";
 import { Quiz, Question, QuizStatus, Answer, QuizMode } from "@/lib/types";
 import DateDisplay from "@/components/DateDisplay";
-import { IoArrowBack, IoShareSocial, IoClipboard } from "react-icons/io5";
+import {
+  IoArrowBack,
+  IoShareSocial,
+  IoClipboard,
+  IoRefresh,
+} from "react-icons/io5";
 import { useAuth } from "@/hooks/useAuth";
 import ConnectionStatusIndicator from "@/components/common/ConnectionStatusIndicator";
 
@@ -32,6 +38,8 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
   const [participantName, setParticipantName] = useState("");
   const [showJoinForm, setShowJoinForm] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now());
 
   const {
     participants,
@@ -48,6 +56,7 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
     joinStatus,
     retryJoin,
     initParticipants,
+    refreshParticipantList,
   } = useQuizHost(quizId);
 
   useEffect(() => {
@@ -55,6 +64,16 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
       setError(connectionError);
     }
   }, [connectionError]);
+
+  useEffect(() => {
+    if (!isConnected || !isAdminView) return;
+
+    const heartbeatInterval = setInterval(() => {
+      refreshParticipantList();
+    }, 15000);
+
+    return () => clearInterval(heartbeatInterval);
+  }, [isConnected, isAdminView]);
 
   useEffect(() => {
     const loadQuiz = async () => {
@@ -85,6 +104,22 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
 
     loadQuiz();
   }, [quizId]);
+
+  useEffect(() => {
+    if (isAdminView && isAdmin && quiz?.status === QuizStatus.Active) {
+      console.log("Setting up participant auto-refresh");
+      refreshParticipantList();
+      const intervalId = setInterval(() => {
+        console.log("Auto-refreshing participant list...");
+        refreshParticipantList();
+      }, 10000);
+
+      return () => {
+        console.log("Cleaning up auto-refresh");
+        clearInterval(intervalId);
+      };
+    }
+  }, [isAdminView, isAdmin, quiz?.status, refreshParticipantList]);
 
   const renderConnectionStatus = () => {
     if (connectionStatus === ConnectionState.Connected && !connectionError) {
@@ -118,6 +153,15 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
       );
     }
     return null;
+  };
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshParticipantList();
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
   };
 
   useEffect(() => {
@@ -305,6 +349,16 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
                 Participants ({participants.length})
               </h2>
               <button
+                className="text-primary hover:text-primary-hover mr-4"
+                onClick={handleManualRefresh}
+                disabled={isRefreshing}
+                title="Refresh participant list"
+              >
+                <IoRefresh
+                  className={`h-5 w-5 ${isRefreshing ? "animate-spin" : ""}`}
+                />
+              </button>
+              <button
                 className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition"
                 onClick={handleEndQuiz}
               >
@@ -312,16 +366,36 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
               </button>
             </div>
             <div className="bg-accent rounded-md p-3 mb-4 border border-border">
-              <p className="font-medium text-foreground">
-                Connection code: {quiz.pinCode}
-              </p>
-              <button
-                onClick={handleCopyJoinLink}
-                className="flex items-center text-primary hover:text-primary-hover transition mt-2"
-              >
-                <IoClipboard className="h-5 w-5 mr-1" />
-                {linkCopied ? "Copied!" : "Copy Join Link"}
-              </button>
+              <div className="grid md:grid-cols-2 gap-4 items-center">
+                <div>
+                  <p className="font-medium text-foreground">
+                    Connection code: {quiz.pinCode}
+                  </p>
+                  <button
+                    onClick={handleCopyJoinLink}
+                    className="flex items-center text-primary hover:text-primary-hover transition mt-2"
+                  >
+                    <IoClipboard className="h-5 w-5 mr-1" />
+                    {linkCopied ? "Copied!" : "Copy Join Link"}
+                  </button>
+                </div>
+
+                {qrCode && (
+                  <div className="flex flex-col items-center">
+                    <div className="border border-border p-2 rounded-md bg-white">
+                      <Image
+                        src={qrCode}
+                        width={125}
+                        height={125}
+                        alt="QR code to join quiz"
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-text-secondary">
+                      Scan to join
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
             {participants.length === 0 ? (
               <p className="text-text-secondary">

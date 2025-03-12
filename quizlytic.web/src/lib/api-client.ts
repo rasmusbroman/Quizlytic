@@ -49,6 +49,14 @@ export const quizApi = {
     return fetchJson<Quiz>(`${API_URL}/api/quizzes/${id}`);
   },
 
+  getActiveParticipants: async (
+    quizId: number
+  ): Promise<{ id: number; name: string }[]> => {
+    return fetchJson<{ id: number; name: string }[]>(
+      `${API_URL}/api/participants/active/${quizId}`
+    );
+  },
+
   create: async (quiz: {
     title: string;
     description: string;
