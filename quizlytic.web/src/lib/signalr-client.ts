@@ -20,7 +20,6 @@ export const getConnection = (): signalR.HubConnection => {
       .configureLogging(signalR.LogLevel.Information)
       .build();
   }
-
   return connection;
 };
 
@@ -154,18 +153,24 @@ export const useQuizHost = (quizId: number) => {
   const {
     isConnected,
     joinAsHost,
-    startQuestion,
-    endQuestion,
-    endQuiz,
+    startQuestion: startQuestionBase,
+    endQuestion: endQuestionBase,
+    endQuiz: endQuizBase,
     onEvent,
+    connection,
   } = useSignalR();
+
   const [participants, setParticipants] = useState<
     { id: number; name: string }[]
   >([]);
   const [activeQuestion, setActiveQuestion] = useState<number | null>(null);
+  const [questionResponses, setQuestionResponses] = useState<
+    Record<number, any[]>
+  >({});
 
   useEffect(() => {
     if (isConnected && quizId) {
+      console.log("Joining as host for quiz:", quizId);
       joinAsHost(quizId);
     }
   }, [isConnected, quizId, joinAsHost]);
@@ -173,16 +178,23 @@ export const useQuizHost = (quizId: number) => {
   useEffect(() => {
     if (!isConnected) return;
 
+    console.log("Setting up SignalR event listeners for host");
+
     const removeParticipantJoined = onEvent(
       "ParticipantJoined",
       (id: number, name: string) => {
+        console.log(`Participant joined: ${name} (${id})`);
         setParticipants((prev) => [...prev, { id, name }]);
       }
     );
 
-    const removeParticipantLeft = onEvent("ParticipantLeft", (id: number) => {
-      setParticipants((prev) => prev.filter((p) => p.id !== id));
-    });
+    const removeParticipantLeft = onEvent(
+      "ParticipantLeft",
+      (id: number, name: string) => {
+        console.log(`Participant left: ${name} (${id})`);
+        setParticipants((prev) => prev.filter((p) => p.id !== id));
+      }
+    );
 
     const removeNewResponse = onEvent(
       "NewResponse",
@@ -193,36 +205,84 @@ export const useQuizHost = (quizId: number) => {
       }
     );
 
+    const removeQuestionEnded = onEvent(
+      "QuestionEnded",
+      (questionId: number, results: any[]) => {
+        console.log(`Question ${questionId} ended with results:`, results);
+        setQuestionResponses((prev) => ({
+          ...prev,
+          [questionId]: results,
+        }));
+        setActiveQuestion(null);
+      }
+    );
+
+    const removeQuestionStarted = onEvent(
+      "QuestionStarted",
+      (questionId: number) => {
+        console.log(`Question ${questionId} started`);
+        setActiveQuestion(questionId);
+      }
+    );
+
     return () => {
       removeParticipantJoined();
       removeParticipantLeft();
       removeNewResponse();
+      removeQuestionEnded();
+      removeQuestionStarted();
     };
   }, [isConnected, onEvent]);
 
-  const handleStartQuestion = async (questionId: number) => {
-    await startQuestion(quizId, questionId);
-    setActiveQuestion(questionId);
-  };
-
-  const handleEndQuestion = async () => {
-    if (activeQuestion) {
-      await endQuestion(quizId, activeQuestion);
-      setActiveQuestion(null);
+  const startQuestion = async (questionId: number) => {
+    console.log(`Starting question ${questionId} for quiz ${quizId}`);
+    if (isConnected) {
+      try {
+        await startQuestionBase(quizId, questionId);
+        setActiveQuestion(questionId);
+      } catch (error) {
+        console.error("Error starting question:", error);
+      }
+    } else {
+      console.warn("Cannot start question - not connected to SignalR hub");
     }
   };
 
-  const handleEndQuiz = async () => {
-    await endQuiz(quizId);
+  const endQuestion = async (quizId: number, questionId: number) => {
+    console.log(`Ending question ${questionId} for quiz ${quizId}`);
+    if (isConnected) {
+      try {
+        await endQuestionBase(quizId, questionId);
+      } catch (error) {
+        console.error("Error ending question:", error);
+      }
+    } else {
+      console.warn("Cannot end question - not connected to SignalR hub");
+    }
+  };
+
+  const endQuiz = async () => {
+    console.log(`Ending quiz ${quizId}`);
+    if (isConnected) {
+      try {
+        await endQuizBase(quizId);
+      } catch (error) {
+        console.error("Error ending quiz:", error);
+      }
+    } else {
+      console.warn("Cannot end quiz - not connected to SignalR hub");
+    }
   };
 
   return {
     participants,
     activeQuestion,
-    startQuestion: handleStartQuestion,
-    endQuestion: handleEndQuestion,
-    endQuiz: handleEndQuiz,
+    questionResponses,
+    startQuestion,
+    endQuestion,
+    endQuiz,
     isConnected,
+    connection,
   };
 };
 
