@@ -10,6 +10,7 @@ namespace Quizlytic.API.Extensions
             routes.MapQuestionEndpoints();
             routes.MapQrCodeEndpoints();
             routes.MapSurveyEndpoints();
+            routes.MapParticipantEndpoints();
         }
     }
 }

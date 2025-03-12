@@ -18,6 +18,18 @@ namespace Quizlytic.API.Hubs
             string groupName = $"quiz-{quizId}";
             await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
             await Groups.AddToGroupAsync(Context.ConnectionId, $"{groupName}-host");
+
+            var connectedParticipants = await _context.Participants
+                .Where(p => p.QuizId == int.Parse(quizId) && p.ConnectionId != null)
+                .ToListAsync();
+
+            if (connectedParticipants.Any())
+            {
+                foreach (var participant in connectedParticipants)
+                {
+                    await Clients.Caller.SendAsync("ParticipantJoined", participant.Id, participant.Name);
+                }
+            }
         }
 
         public async Task JoinAsParticipant(string pinCode, string participantName)
@@ -52,14 +64,29 @@ namespace Quizlytic.API.Hubs
             string effectiveName = string.IsNullOrWhiteSpace(participantName) ?
                 "Anonymous" : participantName;
 
-            var participant = new Participant
-            {
-                QuizId = quiz.Id,
-                Name = effectiveName,
-                ConnectionId = Context.ConnectionId
-            };
+            Participant participant;
+            var existingParticipant = await _context.Participants
+                .FirstOrDefaultAsync(p =>
+                    p.QuizId == quiz.Id &&
+                    p.Name == effectiveName &&
+                    p.ConnectionId == null);
 
-            _context.Participants.Add(participant);
+            if (existingParticipant != null)
+            {
+                Console.WriteLine($"Participant {effectiveName} is reconnecting");
+                existingParticipant.ConnectionId = Context.ConnectionId;
+                participant = existingParticipant;
+            }
+            else
+            {
+                participant = new Participant
+                {
+                    QuizId = quiz.Id,
+                    Name = effectiveName,
+                    ConnectionId = Context.ConnectionId
+                };
+                _context.Participants.Add(participant);
+            }
             await _context.SaveChangesAsync();
 
             string groupName = $"quiz-{quiz.Id}";
@@ -76,7 +103,8 @@ namespace Quizlytic.API.Hubs
                     .ToListAsync();
 
                 await Clients.Caller.SendAsync("SurveyQuestions",
-                    questions.Select(q => new {
+                    questions.Select(q => new
+                    {
                         Id = q.Id,
                         Text = q.Text,
                         ImageUrl = q.ImageUrl,
@@ -104,7 +132,6 @@ namespace Quizlytic.API.Hubs
                 ParticipantId = participant.Id,
                 FreeTextResponse = freeTextAnswer
             };
-
             _context.Responses.Add(response);
             await _context.SaveChangesAsync();
 
@@ -160,17 +187,44 @@ namespace Quizlytic.API.Hubs
             await Clients.Group(groupName).SendAsync("QuizEnded");
         }
 
+        public async Task GetActiveParticipants(int quizId)
+        {
+            try
+            {
+                var activeParticipants = await _context.Participants
+                    .Where(p => p.QuizId == quizId)
+                    .ToListAsync();
+
+                var connectedParticipants = activeParticipants
+                    .Where(p => p.ConnectionId != null)
+                    .Select(p => new { p.Id, p.Name })
+                    .ToList();
+
+                Console.WriteLine($"SignalR GetActiveParticipants: Total {activeParticipants.Count}, Connected {connectedParticipants.Count}");
+
+                await Clients.Caller.SendAsync("ActiveParticipantsList", connectedParticipants);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetActiveParticipants: {ex.Message}");
+            }
+        }
+
         public override async Task OnDisconnectedAsync(Exception exception)
         {
-            var participant = await _context.Participants.FirstOrDefaultAsync(p => p.ConnectionId == Context.ConnectionId);
+            var participant = await _context.Participants
+                .FirstOrDefaultAsync(p => p.ConnectionId == Context.ConnectionId);
+
             if (participant != null)
             {
+                Console.WriteLine($"Participant disconnected: {participant.Id} - {participant.Name}");
                 string groupName = $"quiz-{participant.QuizId}";
-                await Clients.Group(groupName).SendAsync("ParticipantLeft", participant.Id, participant.Name);
-                participant.ConnectionId = null;
-                await _context.SaveChangesAsync();
-            }
 
+                participant.ConnectionId = null;
+
+                await _context.SaveChangesAsync();
+                await Clients.Group(groupName).SendAsync("ParticipantLeft", participant.Id, participant.Name);
+            }
             await base.OnDisconnectedAsync(exception);
         }
     }

@@ -1,5 +1,6 @@
 import * as signalR from "@microsoft/signalr";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { quizApi } from "@/lib/api-client";
 
 export enum ConnectionState {
   Disconnected = "Disconnected",
@@ -392,14 +393,48 @@ export const useQuizHost = (quizId: number) => {
   const initParticipants = useCallback((initialParticipants: any[]) => {
     if (initialParticipants && initialParticipants.length > 0) {
       console.log("Initializing participants:", initialParticipants);
+      const connectedParticipants = initialParticipants.filter(
+        (p) => p.connectionId != null
+      );
       setParticipants(
-        initialParticipants.map((p) => ({
+        connectedParticipants.map((p) => ({
           id: p.id,
           name: p.name,
         }))
       );
     }
   }, []);
+
+  const refreshParticipantList = useCallback(async () => {
+    console.log("Refreshing participant list using dual approach...");
+
+    try {
+      const activeParticipants = await quizApi.getActiveParticipants(quizId);
+      console.log("REST API response:", activeParticipants);
+      console.log("Number of participants:", activeParticipants.length);
+
+      if (Array.isArray(activeParticipants)) {
+        const nullConnectionIds = activeParticipants.filter(
+          (p) => !p.connectionId && !p.ConnectionId
+        );
+        console.log(
+          "Participants with null ConnectionId:",
+          nullConnectionIds.length
+        );
+      }
+      setParticipants(activeParticipants);
+    } catch (restError) {
+      console.error("REST API participant refresh failed:", restError);
+
+      if (isConnected && connection) {
+        try {
+          await connection.invoke("GetActiveParticipants", quizId);
+        } catch (signalrError) {
+          console.error("Both refresh methods failed:", signalrError);
+        }
+      }
+    }
+  }, [isConnected, connection, quizId]);
 
   useEffect(() => {
     const attemptJoin = async () => {
@@ -481,14 +516,39 @@ export const useQuizHost = (quizId: number) => {
       }
     );
 
+    const removeActiveParticipantsList = onEvent(
+      "ActiveParticipantsList",
+      (participants) => {
+        console.log("Received active participants list:", participants);
+        setParticipants(participants);
+      }
+    );
+
     return () => {
       removeParticipantJoined();
       removeParticipantLeft();
       removeNewResponse();
       removeQuestionEnded();
       removeQuestionStarted();
+      removeActiveParticipantsList();
     };
   }, [isConnected, onEvent]);
+
+  useEffect(() => {
+    if (joinStatus === "joined" && isConnected) {
+      refreshParticipantList();
+    }
+  }, [joinStatus, isConnected, refreshParticipantList]);
+
+  useEffect(() => {
+    if (!isConnected || joinStatus !== "joined") return;
+
+    const intervalId = setInterval(() => {
+      refreshParticipantList();
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [isConnected, joinStatus, refreshParticipantList]);
 
   const retryJoin = useCallback(async () => {
     if (joinStatus === "failed") {
@@ -578,6 +638,7 @@ export const useQuizHost = (quizId: number) => {
     retryJoin,
     initParticipants,
     connection,
+    refreshParticipantList,
   };
 };
 

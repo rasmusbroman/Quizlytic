@@ -39,7 +39,7 @@ namespace Quizlytic.API.Endpoints
                 var quiz = await db.Quizzes
                     .Include(q => q.Questions.OrderBy(qst => qst.OrderIndex))
                     .ThenInclude(q => q.Answers)
-                    .Include(q => q.Participants)
+                    .Include(q => q.Participants.Where(p => p.ConnectionId != null))
                     .FirstOrDefaultAsync(q => q.Id == id);
 
                 return quiz == null
@@ -52,7 +52,7 @@ namespace Quizlytic.API.Endpoints
                 var quiz = await db.Quizzes
                     .Include(q => q.Questions.OrderBy(qst => qst.OrderIndex))
                     .ThenInclude(q => q.Answers)
-                    .Include(q => q.Participants)
+                    .Include(q => q.Participants.Where(p => p.ConnectionId != null))
                     .FirstOrDefaultAsync(q => q.PublicId == publicId);
 
                 return quiz == null
