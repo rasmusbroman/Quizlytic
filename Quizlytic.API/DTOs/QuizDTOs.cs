@@ -3,6 +3,7 @@
 namespace Quizlytic.API.DTOs
 {
     public record UpdateQuestionDto(string Text, string ImageUrl, QuestionType Type);
+    public record ParticipantDto(int Id, string Name);
 
     public record CreateQuizDto(
         string Title,
@@ -48,7 +49,8 @@ namespace Quizlytic.API.DTOs
         IEnumerable<QuestionDto> Questions,
         string PublicId,
         QuizMode Mode,
-        bool AllowAnonymous);
+        bool AllowAnonymous,
+        IEnumerable<ParticipantDto> Participants);
 
     public record QuestionDto(
         int Id,

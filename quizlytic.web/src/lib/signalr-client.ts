@@ -1,7 +1,23 @@
 import * as signalR from "@microsoft/signalr";
 import { useState, useEffect, useRef, useCallback } from "react";
 
+export enum ConnectionState {
+  Disconnected = "Disconnected",
+  Connecting = "Connecting",
+  Connected = "Connected",
+  Reconnecting = "Reconnecting",
+  ConnectionFailed = "ConnectionFailed",
+  ConnectionTimedOut = "ConnectionTimedOut",
+}
+
 let connection: signalR.HubConnection | null = null;
+let connectionState: ConnectionState = ConnectionState.Disconnected;
+let connectionObservers: ((state: ConnectionState) => void)[] = [];
+
+const notifyConnectionStateChanged = (state: ConnectionState) => {
+  connectionState = state;
+  connectionObservers.forEach((observer) => observer(state));
+};
 
 export const getConnection = (): signalR.HubConnection => {
   if (!connection) {
@@ -16,95 +32,279 @@ export const getConnection = (): signalR.HubConnection => {
           transport: signalR.HttpTransportType.WebSockets,
         }
       )
-      .withAutomaticReconnect()
+      .withAutomaticReconnect([0, 2000, 5000, 10000, 15000, 30000])
       .configureLogging(signalR.LogLevel.Information)
       .build();
+
+    connection.onclose(() => {
+      console.log("SignalR disconnected.");
+      notifyConnectionStateChanged(ConnectionState.Disconnected);
+    });
+
+    connection.onreconnecting(() => {
+      console.log("SignalR reconnecting...");
+      notifyConnectionStateChanged(ConnectionState.Reconnecting);
+    });
+
+    connection.onreconnected(() => {
+      console.log("SignalR reconnected.");
+      notifyConnectionStateChanged(ConnectionState.Connected);
+    });
   }
+
   return connection;
 };
 
+export const startConnection = async (timeoutMs = 10000): Promise<boolean> => {
+  const conn = getConnection();
+
+  if (conn.state === signalR.HubConnectionState.Connected) {
+    notifyConnectionStateChanged(ConnectionState.Connected);
+    return true;
+  }
+
+  if (
+    conn.state === signalR.HubConnectionState.Connecting ||
+    conn.state === signalR.HubConnectionState.Reconnecting
+  ) {
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        if (conn.state === signalR.HubConnectionState.Connected) {
+          clearInterval(checkInterval);
+          resolve(true);
+        }
+      }, 500);
+
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        if (conn.state !== signalR.HubConnectionState.Connected) {
+          resolve(false);
+        }
+      }, timeoutMs);
+    });
+  }
+
+  notifyConnectionStateChanged(ConnectionState.Connecting);
+
+  const timeoutPromise = new Promise<boolean>((resolve) => {
+    setTimeout(() => {
+      if (conn.state !== signalR.HubConnectionState.Connected) {
+        console.log("SignalR connection attempt timed out");
+        notifyConnectionStateChanged(ConnectionState.ConnectionTimedOut);
+        resolve(false);
+      }
+    }, timeoutMs);
+  });
+
+  try {
+    const connectionPromise = conn
+      .start()
+      .then(() => {
+        console.log("SignalR connected successfully.");
+        notifyConnectionStateChanged(ConnectionState.Connected);
+        return true;
+      })
+      .catch((err) => {
+        console.error("SignalR connection error:", err);
+        notifyConnectionStateChanged(ConnectionState.ConnectionFailed);
+        return false;
+      });
+
+    return Promise.race([connectionPromise, timeoutPromise]);
+  } catch (error) {
+    console.error("Unexpected error starting SignalR:", error);
+    notifyConnectionStateChanged(ConnectionState.ConnectionFailed);
+    return false;
+  }
+};
+
+export const reconnectSignalR = async (): Promise<boolean> => {
+  if (connection?.state === signalR.HubConnectionState.Connected) {
+    return true;
+  }
+
+  if (connection) {
+    try {
+      await connection.stop();
+      console.log("Stopped existing connection before reconnect");
+    } catch (error) {
+      console.log("Error stopping connection, continuing anyway:", error);
+    }
+  }
+
+  connection = null;
+  return startConnection();
+};
+
 export const useSignalR = () => {
-  const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionState>(
+    connection?.state === signalR.HubConnectionState.Connected
+      ? ConnectionState.Connected
+      : ConnectionState.Disconnected
+  );
+
+  const [isConnected, setIsConnected] = useState(
+    connection?.state === signalR.HubConnectionState.Connected
+  );
+
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [connectionAttempts, setConnectionAttempts] = useState(0);
   const connectionRef = useRef(getConnection());
 
   useEffect(() => {
+    const observer = (state: ConnectionState) => {
+      setConnectionStatus(state);
+      setIsConnected(state === ConnectionState.Connected);
+
+      if (
+        state === ConnectionState.ConnectionFailed ||
+        state === ConnectionState.ConnectionTimedOut
+      ) {
+        setConnectionError(
+          `Connection ${
+            state === ConnectionState.ConnectionTimedOut
+              ? "timed out"
+              : "failed"
+          }. Please try reconnecting.`
+        );
+      } else if (state === ConnectionState.Connected) {
+        setConnectionError(null);
+      }
+    };
+
+    connectionObservers.push(observer);
+
     if (
       connectionRef.current.state === signalR.HubConnectionState.Disconnected
     ) {
-      connectionRef.current
-        .start()
-        .then(() => {
-          console.log("SignalR connected.");
-          setIsConnected(true);
-        })
-        .catch((err) => console.error("SignalR connection error:", err));
+      setConnectionAttempts((prev) => prev + 1);
+      startConnection();
+    } else if (
+      connectionRef.current.state === signalR.HubConnectionState.Connected
+    ) {
+      setConnectionStatus(ConnectionState.Connected);
+      setIsConnected(true);
     }
 
-    connectionRef.current.onclose(() => {
-      console.log("SignalR disconnected.");
-      setIsConnected(false);
-    });
+    return () => {
+      connectionObservers = connectionObservers.filter((o) => o !== observer);
+    };
+  }, []);
 
-    connectionRef.current.onreconnecting(() => {
-      console.log("SignalR reconnecting...");
-      setIsConnected(false);
-    });
+  const reconnect = useCallback(async () => {
+    setConnectionError(null);
+    setConnectionStatus(ConnectionState.Connecting);
+    setConnectionAttempts((prev) => prev + 1);
 
-    connectionRef.current.onreconnected(() => {
-      console.log("SignalR reconnected.");
-      setIsConnected(true);
-    });
-
-    return () => {};
+    const success = await reconnectSignalR();
+    if (!success) {
+      setConnectionError("Reconnection failed. Please try again.");
+    }
+    return success;
   }, []);
 
   const joinAsHost = useCallback(
     async (quizId: number) => {
-      if (isConnected) {
+      if (
+        connectionRef.current.state !== signalR.HubConnectionState.Connected
+      ) {
+        const connected = await reconnect();
+        if (!connected) return false;
+      }
+
+      try {
         await connectionRef.current.invoke("JoinAsHost", quizId.toString());
+        return true;
+      } catch (error) {
+        console.error("Error joining as host:", error);
+        return false;
       }
     },
-    [isConnected]
+    [reconnect]
   );
 
   const joinAsParticipant = useCallback(
     async (pinCode: string, participantName: string) => {
-      if (isConnected) {
+      if (
+        connectionRef.current.state !== signalR.HubConnectionState.Connected
+      ) {
+        const connected = await reconnect();
+        if (!connected) throw new Error("Could not connect to server");
+      }
+
+      try {
         await connectionRef.current.invoke(
           "JoinAsParticipant",
           pinCode,
           participantName
         );
+        return true;
+      } catch (error) {
+        console.error("Error joining as participant:", error);
+        throw error;
       }
     },
-    [isConnected]
+    [reconnect]
   );
 
   const startQuestion = useCallback(
     async (quizId: number, questionId: number) => {
-      if (isConnected) {
+      if (
+        connectionRef.current.state !== signalR.HubConnectionState.Connected
+      ) {
+        const connected = await reconnect();
+        if (!connected) return false;
+      }
+
+      try {
         await connectionRef.current.invoke("StartQuestion", quizId, questionId);
+        return true;
+      } catch (error) {
+        console.error("Error starting question:", error);
+        return false;
       }
     },
-    [isConnected]
+    [reconnect]
   );
 
   const endQuestion = useCallback(
     async (quizId: number, questionId: number) => {
-      if (isConnected) {
+      if (
+        connectionRef.current.state !== signalR.HubConnectionState.Connected
+      ) {
+        const connected = await reconnect();
+        if (!connected) return false;
+      }
+
+      try {
         await connectionRef.current.invoke("EndQuestion", quizId, questionId);
+        return true;
+      } catch (error) {
+        console.error("Error ending question:", error);
+        return false;
       }
     },
-    [isConnected]
+    [reconnect]
   );
 
   const endQuiz = useCallback(
     async (quizId: number) => {
-      if (isConnected) {
+      if (
+        connectionRef.current.state !== signalR.HubConnectionState.Connected
+      ) {
+        const connected = await reconnect();
+        if (!connected) return false;
+      }
+
+      try {
         await connectionRef.current.invoke("EndQuiz", quizId);
+        return true;
+      } catch (error) {
+        console.error("Error ending quiz:", error);
+        return false;
       }
     },
-    [isConnected]
+    [reconnect]
   );
 
   const submitAnswer = useCallback(
@@ -113,16 +313,27 @@ export const useSignalR = () => {
       answerId: number | null,
       freeTextAnswer?: string
     ) => {
-      if (isConnected) {
+      if (
+        connectionRef.current.state !== signalR.HubConnectionState.Connected
+      ) {
+        const connected = await reconnect();
+        if (!connected) return false;
+      }
+
+      try {
         await connectionRef.current.invoke(
           "SubmitAnswer",
           questionId,
           answerId,
           freeTextAnswer || null
         );
+        return true;
+      } catch (error) {
+        console.error("Error submitting answer:", error);
+        return false;
       }
     },
-    [isConnected]
+    [reconnect]
   );
 
   const onEvent = useCallback(
@@ -139,6 +350,10 @@ export const useSignalR = () => {
   return {
     connection: connectionRef.current,
     isConnected,
+    connectionStatus,
+    connectionError,
+    connectionAttempts,
+    reconnect,
     joinAsHost,
     joinAsParticipant,
     startQuestion,
@@ -152,6 +367,9 @@ export const useSignalR = () => {
 export const useQuizHost = (quizId: number) => {
   const {
     isConnected,
+    connectionStatus,
+    connectionError,
+    reconnect,
     joinAsHost,
     startQuestion: startQuestionBase,
     endQuestion: endQuestionBase,
@@ -167,12 +385,45 @@ export const useQuizHost = (quizId: number) => {
   const [questionResponses, setQuestionResponses] = useState<
     Record<number, any[]>
   >({});
+  const [joinStatus, setJoinStatus] = useState<"pending" | "joined" | "failed">(
+    "pending"
+  );
+
+  const initParticipants = useCallback((initialParticipants: any[]) => {
+    if (initialParticipants && initialParticipants.length > 0) {
+      console.log("Initializing participants:", initialParticipants);
+      setParticipants(
+        initialParticipants.map((p) => ({
+          id: p.id,
+          name: p.name,
+        }))
+      );
+    }
+  }, []);
 
   useEffect(() => {
-    if (isConnected && quizId) {
-      console.log("Joining as host for quiz:", quizId);
-      joinAsHost(quizId);
-    }
+    const attemptJoin = async () => {
+      if (isConnected && quizId) {
+        console.log("Attempting to join as host for quiz:", quizId);
+        setJoinStatus("pending");
+
+        try {
+          const success = await joinAsHost(quizId);
+          if (success) {
+            console.log("Successfully joined as host for quiz:", quizId);
+            setJoinStatus("joined");
+          } else {
+            console.error("Failed to join as host for quiz:", quizId);
+            setJoinStatus("failed");
+          }
+        } catch (error) {
+          console.error("Error joining as host:", error);
+          setJoinStatus("failed");
+        }
+      }
+    };
+
+    attemptJoin();
   }, [isConnected, quizId, joinAsHost]);
 
   useEffect(() => {
@@ -184,7 +435,12 @@ export const useQuizHost = (quizId: number) => {
       "ParticipantJoined",
       (id: number, name: string) => {
         console.log(`Participant joined: ${name} (${id})`);
-        setParticipants((prev) => [...prev, { id, name }]);
+        setParticipants((prev) => {
+          if (prev.some((p) => p.id === id)) {
+            return prev;
+          }
+          return [...prev, { id, name }];
+        });
       }
     );
 
@@ -234,43 +490,76 @@ export const useQuizHost = (quizId: number) => {
     };
   }, [isConnected, onEvent]);
 
+  const retryJoin = useCallback(async () => {
+    if (joinStatus === "failed") {
+      if (!isConnected) {
+        await reconnect();
+      }
+
+      if (isConnected) {
+        setJoinStatus("pending");
+        try {
+          const success = await joinAsHost(quizId);
+          setJoinStatus(success ? "joined" : "failed");
+        } catch (error) {
+          console.error("Error retrying join:", error);
+          setJoinStatus("failed");
+        }
+      }
+    }
+  }, [isConnected, joinStatus, joinAsHost, quizId, reconnect]);
+
   const startQuestion = async (questionId: number) => {
     console.log(`Starting question ${questionId} for quiz ${quizId}`);
-    if (isConnected) {
-      try {
-        await startQuestionBase(quizId, questionId);
-        setActiveQuestion(questionId);
-      } catch (error) {
-        console.error("Error starting question:", error);
-      }
-    } else {
+    if (!isConnected) {
       console.warn("Cannot start question - not connected to SignalR hub");
+      return false;
+    }
+
+    try {
+      const success = await startQuestionBase(quizId, questionId);
+      if (success) {
+        setActiveQuestion(questionId);
+      }
+      return success;
+    } catch (error) {
+      console.error("Error starting question:", error);
+      return false;
     }
   };
 
-  const endQuestion = async (quizId: number, questionId: number) => {
-    console.log(`Ending question ${questionId} for quiz ${quizId}`);
-    if (isConnected) {
-      try {
-        await endQuestionBase(quizId, questionId);
-      } catch (error) {
-        console.error("Error ending question:", error);
-      }
-    } else {
+  const endQuestion = async () => {
+    if (!activeQuestion) {
+      console.warn("No active question to end");
+      return false;
+    }
+
+    console.log(`Ending question ${activeQuestion} for quiz ${quizId}`);
+    if (!isConnected) {
       console.warn("Cannot end question - not connected to SignalR hub");
+      return false;
+    }
+
+    try {
+      return await endQuestionBase(quizId, activeQuestion);
+    } catch (error) {
+      console.error("Error ending question:", error);
+      return false;
     }
   };
 
   const endQuiz = async () => {
     console.log(`Ending quiz ${quizId}`);
-    if (isConnected) {
-      try {
-        await endQuizBase(quizId);
-      } catch (error) {
-        console.error("Error ending quiz:", error);
-      }
-    } else {
+    if (!isConnected) {
       console.warn("Cannot end quiz - not connected to SignalR hub");
+      return false;
+    }
+
+    try {
+      return await endQuizBase(quizId);
+    } catch (error) {
+      console.error("Error ending quiz:", error);
+      return false;
     }
   };
 
@@ -282,13 +571,27 @@ export const useQuizHost = (quizId: number) => {
     endQuestion,
     endQuiz,
     isConnected,
+    connectionStatus,
+    connectionError,
+    reconnect,
+    joinStatus,
+    retryJoin,
+    initParticipants,
     connection,
   };
 };
 
 export const useQuizParticipant = () => {
-  const { isConnected, joinAsParticipant, submitAnswer, onEvent } =
-    useSignalR();
+  const {
+    isConnected,
+    connectionStatus,
+    connectionError,
+    reconnect,
+    joinAsParticipant,
+    submitAnswer: submitAnswerBase,
+    onEvent,
+  } = useSignalR();
+
   const [quizInfo, setQuizInfo] = useState<{
     title: string;
     mode: string;
@@ -308,6 +611,9 @@ export const useQuizParticipant = () => {
   >(new Map());
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [joinStatus, setJoinStatus] = useState<
+    "idle" | "pending" | "joined" | "failed"
+  >("idle");
 
   useEffect(() => {
     if (!isConnected) return;
@@ -317,11 +623,13 @@ export const useQuizParticipant = () => {
       (title: string, mode: string) => {
         setQuizInfo({ title, mode });
         setError(null);
+        setJoinStatus("joined");
       }
     );
 
     const removeJoinError = onEvent("JoinError", (errorMessage: string) => {
       setError(errorMessage);
+      setJoinStatus("failed");
     });
 
     const removeQuestionStarted = onEvent(
@@ -383,35 +691,83 @@ export const useQuizParticipant = () => {
     };
   }, [isConnected, onEvent, surveyQuestions, currentSurveyQuestionIndex]);
 
+  useEffect(() => {
+    if (connectionError) {
+      setError(connectionError);
+    }
+  }, [connectionError]);
+
   const joinQuiz = async (pinCode: string, name: string) => {
+    setJoinStatus("pending");
+    setError(null);
+
+    if (!isConnected) {
+      try {
+        const reconnected = await reconnect();
+        if (!reconnected) {
+          setError("Could not connect to server. Please try again.");
+          setJoinStatus("failed");
+          return false;
+        }
+      } catch (error) {
+        setError("Connection failed. Please try again.");
+        setJoinStatus("failed");
+        return false;
+      }
+    }
+
     try {
       await joinAsParticipant(pinCode, name);
+      return true;
     } catch (err) {
       console.error("Error joining quiz:", err);
       setError("Failed to join quiz. Please try again.");
+      setJoinStatus("failed");
+      return false;
     }
   };
 
-  const handleSubmitAnswer = async (
+  const submitAnswer = async (
     answerId: number | null,
     freeTextAnswer?: string
   ) => {
-    if (currentQuestion) {
-      await submitAnswer(currentQuestion.id, answerId, freeTextAnswer);
-    } else if (surveyQuestions.length > 0) {
-      const currentSurveyQuestion = surveyQuestions[currentSurveyQuestionIndex];
-      if (currentSurveyQuestion) {
-        setSurveyResponses((prev) => {
-          const newMap = new Map(prev);
-          newMap.set(currentSurveyQuestion.id, {
-            answerId: answerId || undefined,
-            freeText: freeTextAnswer,
-          });
-          return newMap;
-        });
+    if (!isConnected) {
+      setError("Not connected to server. Please reconnect.");
+      return false;
+    }
 
-        await submitAnswer(currentSurveyQuestion.id, answerId, freeTextAnswer);
+    try {
+      if (currentQuestion) {
+        return await submitAnswerBase(
+          currentQuestion.id,
+          answerId,
+          freeTextAnswer
+        );
+      } else if (surveyQuestions.length > 0) {
+        const currentSurveyQuestion =
+          surveyQuestions[currentSurveyQuestionIndex];
+        if (currentSurveyQuestion) {
+          setSurveyResponses((prev) => {
+            const newMap = new Map(prev);
+            newMap.set(currentSurveyQuestion.id, {
+              answerId: answerId || undefined,
+              freeText: freeTextAnswer,
+            });
+            return newMap;
+          });
+
+          return await submitAnswerBase(
+            currentSurveyQuestion.id,
+            answerId,
+            freeTextAnswer
+          );
+        }
       }
+      return false;
+    } catch (error) {
+      console.error("Error submitting answer:", error);
+      setError("Failed to submit answer. Please try again.");
+      return false;
     }
   };
 
@@ -440,8 +796,11 @@ export const useQuizParticipant = () => {
     results,
     error,
     isConnected,
+    connectionStatus,
+    joinStatus,
     joinQuiz,
-    submitAnswer: handleSubmitAnswer,
+    submitAnswer,
+    reconnect,
     isSurveyMode: quizInfo?.mode === "SelfPaced",
     surveyQuestions,
     currentSurveyQuestion: getCurrentSurveyQuestion(),

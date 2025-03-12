@@ -39,7 +39,8 @@ namespace Quizlytic.API.Extensions
                 quiz.Questions?.Select(q => q.ToDto()) ?? Enumerable.Empty<QuestionDto>(),
                 quiz.PublicId,
                 quiz.Mode,
-                quiz.AllowAnonymous
+                quiz.AllowAnonymous,
+                quiz.Participants?.Select(p => new ParticipantDto(p.Id, p.Name)) ?? Enumerable.Empty<ParticipantDto>()
             );
         }
 

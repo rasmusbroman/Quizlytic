@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
-import { useQuizHost } from "@/lib/signalr-client";
+import { useQuizHost, ConnectionState } from "@/lib/signalr-client";
 import { quizApi } from "@/lib/api-client";
 import { Quiz, Question, QuizStatus, Answer, QuizMode } from "@/lib/types";
 import DateDisplay from "@/components/DateDisplay";
 import { IoArrowBack, IoShareSocial, IoClipboard } from "react-icons/io5";
 import { useAuth } from "@/hooks/useAuth";
+import ConnectionStatusIndicator from "@/components/common/ConnectionStatusIndicator";
 
 interface QuizHostProps {
   quizId: number;
@@ -35,18 +36,35 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
   const {
     participants,
     activeQuestion,
+    questionResponses,
     startQuestion,
     endQuestion,
     endQuiz,
     isConnected,
     connection,
+    connectionStatus,
+    connectionError,
+    reconnect,
+    joinStatus,
+    retryJoin,
+    initParticipants,
   } = useQuizHost(quizId);
+
+  useEffect(() => {
+    if (connectionError) {
+      setError(connectionError);
+    }
+  }, [connectionError]);
 
   useEffect(() => {
     const loadQuiz = async () => {
       try {
         const quizData = await quizApi.getById(quizId);
         setQuiz(quizData);
+
+        if (quizData.participants) {
+          initParticipants(quizData.participants);
+        }
 
         if (quizData.pinCode) {
           try {
@@ -67,6 +85,40 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
 
     loadQuiz();
   }, [quizId]);
+
+  const renderConnectionStatus = () => {
+    if (connectionStatus === ConnectionState.Connected && !connectionError) {
+      return null;
+    }
+    return (
+      <div className="mb-4">
+        <ConnectionStatusIndicator
+          status={connectionStatus}
+          error={connectionError}
+          onReconnect={reconnect}
+        />
+      </div>
+    );
+  };
+
+  const renderJoinRetry = () => {
+    if (joinStatus === "failed") {
+      return (
+        <div className="bg-yellow-100 text-yellow-800 p-3 rounded mb-4">
+          <p className="mb-2">
+            Failed to join as host for this quiz. Please try reconnecting.
+          </p>
+          <button
+            onClick={retryJoin}
+            className="bg-blue-600 text-white py-1 px-3 rounded-md hover:bg-blue-700 transition"
+          >
+            Retry Join
+          </button>
+        </div>
+      );
+    }
+    return null;
+  };
 
   useEffect(() => {
     if (!isConnected || !quiz || !isAdminView || !isAdmin) return;
@@ -98,6 +150,25 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
       console.error("Error starting quiz:", err);
       setError("Could not start the quiz. Please try again later.");
     }
+  };
+
+  const renderConnectionWarning = () => {
+    if (
+      connectionStatus === ConnectionState.Connecting ||
+      connectionStatus === ConnectionState.Reconnecting
+    ) {
+      return (
+        <div className="bg-yellow-100 text-yellow-800 p-3 rounded mb-4 flex items-center">
+          <div className="inline-block animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-yellow-800 mr-2"></div>
+          <span>
+            {connectionStatus === ConnectionState.Connecting
+              ? "Connecting to server..."
+              : "Reconnecting..."}
+          </span>
+        </div>
+      );
+    }
+    return null;
   };
 
   const handleStartQuestion = (index: number) => {
@@ -209,6 +280,8 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
   ) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {renderConnectionStatus()}
+        {renderJoinRetry()}
         <div className="bg-card rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-primary">{quiz.title}</h1>
@@ -223,7 +296,7 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
           </div>
           {!isConnected && (
             <div className="bg-yellow-100 text-yellow-800 p-3 rounded mb-4">
-              Connecting to server...
+              {renderConnectionWarning()}
             </div>
           )}
           <div className="mb-8">
