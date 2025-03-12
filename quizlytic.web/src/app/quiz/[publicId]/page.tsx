@@ -5,10 +5,12 @@ import { useEffect, useState } from "react";
 import { quizApi } from "@/lib/api-client";
 import { Quiz } from "@/lib/types";
 import QuizHost from "@/components/quiz/QuizHost";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function QuizPublicPage() {
   const params = useParams();
   const router = useRouter();
+  const { isAdmin } = useAuth();
   const publicId = params.publicId as string;
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,5 +68,5 @@ export default function QuizPublicPage() {
     );
   }
 
-  return <QuizHost quizId={quiz.id} />;
+  return <QuizHost quizId={quiz.id} isAdminView={false} />;
 }

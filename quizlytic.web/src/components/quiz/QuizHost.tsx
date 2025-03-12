@@ -1,18 +1,23 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { useQuizHost } from "@/lib/signalr-client";
-import { quizApi, resultApi } from "@/lib/api-client";
-import { Quiz, Question, QuizStatus, Answer } from "@/lib/types";
+import { quizApi } from "@/lib/api-client";
+import { Quiz, Question, QuizStatus, Answer, QuizMode } from "@/lib/types";
 import DateDisplay from "@/components/DateDisplay";
-import { IoArrowBack } from "react-icons/io5";
+import { IoArrowBack, IoShareSocial, IoClipboard } from "react-icons/io5";
+import { useAuth } from "@/hooks/useAuth";
 
 interface QuizHostProps {
   quizId: number;
+  isAdminView?: boolean;
 }
 
-const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
+const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
   const router = useRouter();
+  const { isAdmin } = useAuth();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,6 +28,9 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<
     number | null
   >(null);
+  const [participantName, setParticipantName] = useState("");
+  const [showJoinForm, setShowJoinForm] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const {
     participants,
@@ -31,6 +39,7 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
     endQuestion,
     endQuiz,
     isConnected,
+    connection,
   } = useQuizHost(quizId);
 
   useEffect(() => {
@@ -60,25 +69,24 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
   }, [quizId]);
 
   useEffect(() => {
-    const loadResults = async (): Promise<void> => {
-      try {
-        const results = await resultApi.getByQuizId(quizId);
+    if (!isConnected || !quiz || !isAdminView || !isAdmin) return;
 
-        const resultsByQuestion: Record<number, any[]> = {};
-        results.questions.forEach((question: any) => {
-          resultsByQuestion[question.questionId] = question.answerDistribution;
-        });
-
-        setQuestionResults(resultsByQuestion);
-      } catch (err) {
-        console.error("Error loading results:", err);
-      }
+    const handleNewResponse = (questionId: number, participantId: number) => {
+      console.log(
+        `New response from participant ${participantId} for question ${questionId}`
+      );
     };
 
-    if (quiz && quiz.status === QuizStatus.Completed) {
-      loadResults();
+    if (connection) {
+      connection.on("NewResponse", handleNewResponse);
     }
-  }, [quizId, quiz?.status]);
+
+    return () => {
+      if (connection) {
+        connection.off("NewResponse", handleNewResponse);
+      }
+    };
+  }, [isConnected, quiz, isAdminView, isAdmin, connection]);
 
   const handleStartQuiz = async () => {
     if (!quiz) return;
@@ -100,14 +108,15 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
   };
 
   const handleEndQuestion = () => {
-    endQuestion();
-    setCurrentQuestionIndex(null);
+    if (activeQuestion) {
+      endQuestion(quizId, activeQuestion);
+      setCurrentQuestionIndex(null);
+    }
   };
 
   const handleEndQuiz = async () => {
     try {
-      await endQuiz();
-
+      await endQuiz(quizId);
       const updatedQuiz = await quizApi.getById(quizId);
       setQuiz(updatedQuiz);
     } catch (err) {
@@ -116,8 +125,30 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
     }
   };
 
-  const handleViewResults = () => {
-    router.push(`/quizzes/${quizId}/results`);
+  const handleJoinQuiz = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (quiz && participantName.trim()) {
+      router.push(
+        `/join?pin=${quiz.pinCode}&name=${encodeURIComponent(participantName)}`
+      );
+    }
+  };
+
+  const handleCopyJoinLink = () => {
+    if (quiz) {
+      const joinUrl = `${window.location.origin}/join?pin=${quiz.pinCode}`;
+      navigator.clipboard.writeText(joinUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 3000);
+    }
+  };
+
+  const handleBackNavigation = () => {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
   };
 
   const getAnswerCount = (results, answerId) => {
@@ -129,57 +160,6 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
     const count = getAnswerCount(results, answerId);
     const total = results?.reduce((sum, result) => sum + result.count, 0) || 0;
     return total > 0 ? Math.round((count / total) * 100) : 0;
-  };
-
-  const handleBackNavigation = () => {
-    if (window.history.length > 1) {
-      router.back();
-    } else {
-      router.push("/");
-    }
-  };
-
-  const renderQuestionResult = (question: Question): React.ReactNode => {
-    const results = questionResults[question.id] || [];
-
-    if (quiz?.hasCorrectAnswers) {
-      return (
-        <div className="space-y-1">
-          {question.answers.map((answer: Answer, index: number) => (
-            <div
-              key={answer.id || `${question.id}-answer-${index}`}
-              className={`p-2 rounded ${
-                answer.isCorrect ? "bg-green-100 border border-green-300" : ""
-              }`}
-            >
-              <div className="flex justify-between">
-                <span>{answer.text}</span>
-                <span>{getAnswerCount(results, answer.id)} responses</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      );
-    } else {
-      return (
-        <div className="space-y-1">
-          {question.answers.map((answer: Answer, index: number) => (
-            <div
-              key={answer.id || `${question.id}-answer-${index}`}
-              className="p-2"
-            >
-              <div className="flex justify-between">
-                <span>{answer.text}</span>
-                <span>
-                  {getAnswerCount(results, answer.id)} responses (
-                  {getAnswerPercentage(results, answer.id)}%)
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      );
-    }
   };
 
   if (isLoading) {
@@ -221,6 +201,426 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
     );
   }
 
+  if (
+    isAdminView &&
+    isAdmin &&
+    quiz.status === QuizStatus.Active &&
+    quiz.mode === QuizMode.RealTime
+  ) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="bg-card rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-primary">{quiz.title}</h1>
+            <button
+              onClick={handleBackNavigation}
+              className="flex items-center text-primary hover:text-primary-hover transition"
+              aria-label="Back"
+            >
+              <IoArrowBack className="h-5 w-5 text-primary" />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+          </div>
+          {!isConnected && (
+            <div className="bg-yellow-100 text-yellow-800 p-3 rounded mb-4">
+              Connecting to server...
+            </div>
+          )}
+          <div className="mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-foreground">
+                Participants ({participants.length})
+              </h2>
+              <button
+                className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition"
+                onClick={handleEndQuiz}
+              >
+                End Quiz
+              </button>
+            </div>
+            <div className="bg-accent rounded-md p-3 mb-4 border border-border">
+              <p className="font-medium text-foreground">
+                Connection code: {quiz.pinCode}
+              </p>
+              <button
+                onClick={handleCopyJoinLink}
+                className="flex items-center text-primary hover:text-primary-hover transition mt-2"
+              >
+                <IoClipboard className="h-5 w-5 mr-1" />
+                {linkCopied ? "Copied!" : "Copy Join Link"}
+              </button>
+            </div>
+            {participants.length === 0 ? (
+              <p className="text-text-secondary">
+                No participants have joined yet.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {participants.map((p, index) => (
+                  <div
+                    key={p.id || `${p.name}-${index}`}
+                    className="bg-accent px-3 py-2 rounded-md text-center border border-border text-foreground"
+                  >
+                    {p.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold mb-4 text-foreground">
+              Questions
+            </h2>
+
+            {quiz.questions.length === 0 ? (
+              <p className="text-text-secondary">
+                This quiz has no questions yet.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {quiz.questions.map((question, index) => (
+                  <div
+                    key={question.id}
+                    className={`p-4 rounded-lg border ${
+                      activeQuestion === question.id
+                        ? "border-green-500 bg-accent"
+                        : question.hasResponses
+                        ? "border-primary bg-accent/50"
+                        : "border-border"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="font-medium text-foreground">
+                          {index + 1}. {question.text}
+                        </h3>
+                        <p className="text-sm text-text-secondary mt-1">
+                          {question.type === 0
+                            ? "Single choice"
+                            : question.type === 1
+                            ? "Multiple choice"
+                            : "Free text"}
+                        </p>
+                      </div>
+                      <div>
+                        {activeQuestion === question.id ? (
+                          <button
+                            className="bg-secondary text-white py-1 px-3 rounded-md hover:bg-secondary-hover transition text-sm"
+                            onClick={handleEndQuestion}
+                          >
+                            End Question
+                          </button>
+                        ) : (
+                          <button
+                            className="bg-primary text-white py-1 px-3 rounded-md hover:bg-primary-hover transition text-sm"
+                            onClick={() => handleStartQuestion(index)}
+                            disabled={activeQuestion !== null}
+                          >
+                            Start Question
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {question.hasResponses &&
+                      activeQuestion !== question.id && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <h4 className="font-medium text-sm mb-2 text-foreground">
+                            Results:
+                          </h4>
+                          <div className="space-y-1">
+                            {question.answers.map((answer) => (
+                              <div key={answer.id} className="relative">
+                                <div className="flex justify-between mb-1">
+                                  <span
+                                    className={`${
+                                      answer.isCorrect && quiz.hasCorrectAnswers
+                                        ? "font-semibold text-green-700"
+                                        : ""
+                                    }`}
+                                  >
+                                    {answer.text}
+                                  </span>
+                                  <span>
+                                    {getAnswerCount(
+                                      questionResults[question.id] || [],
+                                      answer.id
+                                    )}{" "}
+                                    responses
+                                  </span>
+                                </div>
+                                <div className="h-4 w-full bg-gray-200 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full ${
+                                      answer.isCorrect && quiz.hasCorrectAnswers
+                                        ? "bg-green-500"
+                                        : "bg-blue-500"
+                                    }`}
+                                    style={{
+                                      width: `${getAnswerPercentage(
+                                        questionResults[question.id] || [],
+                                        answer.id
+                                      )}%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (quiz.status === QuizStatus.Created) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="bg-card rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-primary">{quiz.title}</h1>
+            <button
+              onClick={handleBackNavigation}
+              className="flex items-center text-primary hover:text-primary-hover transition"
+              aria-label="Back"
+            >
+              <IoArrowBack className="h-5 w-5 text-primary" />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+          </div>
+          {quiz.description && (
+            <p className="text-text-secondary mb-6">{quiz.description}</p>
+          )}
+          <div className="mb-8">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="font-medium mb-2 text-foreground">
+                  Quiz information
+                </h3>
+                <p className="text-sm text-text-secondary mb-2">
+                  This quiz has {quiz.questions.length} questions.
+                </p>
+                <p className="text-sm text-text-secondary mb-4">
+                  Status: <span className="font-medium">Not started yet</span>
+                </p>
+                {isAdminView && isAdmin && quiz.mode === QuizMode.RealTime && (
+                  <button
+                    className="w-full bg-primary text-white py-3 px-4 rounded-md hover:bg-primary-hover transition"
+                    onClick={handleStartQuiz}
+                  >
+                    Start Quiz
+                  </button>
+                )}
+              </div>
+              {qrCode && (
+                <div className="flex flex-col items-center">
+                  <h3 className="font-medium mb-2 text-foreground">
+                    QR code to join
+                  </h3>
+                  <div className="border border-border p-2 rounded-md bg-white">
+                    <img src={qrCode} alt="QR code" className="w-40 h-40" />
+                  </div>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    Join code: {quiz.pinCode}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (quiz.status === QuizStatus.Active && quiz.mode === QuizMode.RealTime) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="bg-card rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-primary">{quiz.title}</h1>
+            <button
+              onClick={handleBackNavigation}
+              className="flex items-center text-primary hover:text-primary-hover transition"
+              aria-label="Back"
+            >
+              <IoArrowBack className="h-5 w-5 text-primary" />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+          </div>
+          {quiz.description && (
+            <p className="text-text-secondary mb-6">{quiz.description}</p>
+          )}
+          <div className="bg-accent rounded-md p-4 mb-6">
+            <h2 className="text-lg font-semibold mb-3">
+              This quiz is currently active!
+            </h2>
+            <p className="mb-3">
+              This quiz has {quiz.questions.length} questions and is currently
+              in progress.
+            </p>
+            {showJoinForm ? (
+              <form onSubmit={handleJoinQuiz} className="mt-4">
+                <div className="mb-4">
+                  <label className="block text-foreground mb-1">
+                    Your Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter your name"
+                    className="w-full border border-border rounded-md px-3 py-2"
+                    value={participantName}
+                    onChange={(e) => setParticipantName(e.target.value)}
+                    required={!quiz.allowAnonymous}
+                  />
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    type="submit"
+                    className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
+                  >
+                    Join Now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowJoinForm(false)}
+                    className="bg-secondary text-white py-2 px-4 rounded-md hover:bg-secondary-hover transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                onClick={() => setShowJoinForm(true)}
+                className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
+              >
+                Join This Quiz
+              </button>
+            )}
+          </div>
+          {qrCode && (
+            <div className="flex flex-col items-center bg-white p-6 rounded-md border border-border">
+              <h3 className="font-medium mb-3 text-foreground">Scan to join</h3>
+              <div className="border border-border p-2 rounded-md bg-white">
+                <img src={qrCode} alt="QR code" className="w-40 h-40" />
+              </div>
+              <p className="mt-3 text-foreground">
+                PIN Code: <span className="font-bold">{quiz.pinCode}</span>
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (quiz.mode === QuizMode.SelfPaced) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="bg-card rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-primary">{quiz.title}</h1>
+            <button
+              onClick={handleBackNavigation}
+              className="flex items-center text-primary hover:text-primary-hover transition"
+              aria-label="Back"
+            >
+              <IoArrowBack className="h-5 w-5 text-primary" />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+          </div>
+          {quiz.description && (
+            <p className="text-text-secondary mb-6">{quiz.description}</p>
+          )}
+          <div className="bg-blue-50 text-blue-800 p-4 rounded-md mb-6">
+            <h2 className="text-lg font-semibold mb-2">Self-paced Survey</h2>
+            <p className="mb-3">
+              This is a self-paced survey with {quiz.questions.length}{" "}
+              questions.
+              {quiz.status === QuizStatus.Active
+                ? " It is currently active and accepting responses."
+                : quiz.status === QuizStatus.Completed
+                ? " This survey has been completed."
+                : " This survey has not started yet."}
+            </p>
+            {quiz.status === QuizStatus.Active && (
+              <>
+                {showJoinForm ? (
+                  <form onSubmit={handleJoinQuiz} className="mt-4">
+                    <div className="mb-4">
+                      <label className="block text-foreground mb-1">
+                        Your Name {!quiz.allowAnonymous && "(Required)"}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter your name"
+                        className="w-full border border-border rounded-md px-3 py-2"
+                        value={participantName}
+                        onChange={(e) => setParticipantName(e.target.value)}
+                        required={!quiz.allowAnonymous}
+                      />
+                    </div>
+                    <div className="flex space-x-3">
+                      <button
+                        type="submit"
+                        className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
+                      >
+                        Take Survey Now
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowJoinForm(false)}
+                        className="bg-secondary text-white py-2 px-4 rounded-md hover:bg-secondary-hover transition"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <button
+                    onClick={() => setShowJoinForm(true)}
+                    className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
+                  >
+                    Take This Survey
+                  </button>
+                )}
+              </>
+            )}
+            {isAdminView && isAdmin && quiz.status === QuizStatus.Active && (
+              <div className="mt-4 pt-4 border-t border-blue-200">
+                <p className="mb-2">Admin Options:</p>
+                <button
+                  className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition"
+                  onClick={handleEndQuiz}
+                >
+                  End Survey
+                </button>
+              </div>
+            )}
+          </div>
+          {qrCode && quiz.status === QuizStatus.Active && (
+            <div className="flex flex-col items-center bg-white p-6 rounded-md border border-border">
+              <h3 className="font-medium mb-3 text-foreground">
+                Scan to take the survey
+              </h3>
+              <div className="border border-border p-2 rounded-md bg-white">
+                <img src={qrCode} alt="QR code" className="w-40 h-40" />
+              </div>
+              <p className="mt-3 text-foreground">
+                PIN Code: <span className="font-bold">{quiz.pinCode}</span>
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="bg-card rounded-lg shadow p-6">
@@ -236,182 +636,20 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId }) => {
           </button>
         </div>
 
-        {quiz.description && (
-          <p className="text-text-secondary mb-6">{quiz.description}</p>
-        )}
+        <div className="bg-green-100 text-green-800 p-4 rounded-md mb-6">
+          <h2 className="text-xl font-semibold mb-2">Quiz completed!</h2>
+          <p>
+            This quiz was completed on{" "}
+            <DateDisplay date={quiz.endedAt} formatString="PPP p" />.
+          </p>
+        </div>
 
-        {!isConnected && (
-          <div className="bg-yellow-100 text-yellow-800 p-3 rounded mb-4">
-            Connecting to server...
-          </div>
-        )}
-
-        {quiz.status === QuizStatus.Created && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">
-              Start Quiz
-            </h2>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="font-medium mb-2 text-foreground">
-                  Quiz code: {quiz.pinCode}
-                </h3>
-                <p className="text-sm mb-4 text-text-secondary">
-                  Share this code with participants so they can join your quiz.
-                </p>
-
-                <button
-                  className="w-full bg-primary text-white py-3 px-4 rounded-md hover:bg-primary-hover transition"
-                  onClick={handleStartQuiz}
-                >
-                  Start Quiz
-                </button>
-              </div>
-
-              {qrCode && (
-                <div className="flex flex-col items-center">
-                  <h3 className="font-medium mb-2 text-foreground">
-                    QR code to join
-                  </h3>
-                  <div className="border border-border p-2 rounded-md bg-white">
-                    <img src={qrCode} alt="QR code" className="w-40 h-40" />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {quiz.status === QuizStatus.Active && (
-          <>
-            <div className="mb-8">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-foreground">
-                  Participants ({participants.length})
-                </h2>
-                <button
-                  className="bg-secondary text-white py-2 px-4 rounded-md hover:bg-secondary-hover transition"
-                  onClick={handleEndQuiz}
-                >
-                  End Quiz
-                </button>
-              </div>
-
-              <div className="bg-accent rounded-md p-3 mb-4 border border-border">
-                <p className="font-medium text-foreground">
-                  Connection code: {quiz.pinCode}
-                </p>
-              </div>
-
-              {participants.length === 0 ? (
-                <p className="text-text-secondary">
-                  No participants have joined yet.
-                </p>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {participants.map((p, index) => (
-                    <div
-                      key={p.id || `${p.name}-${index}`}
-                      className="bg-accent px-3 py-2 rounded-md text-center border border-border text-foreground"
-                    >
-                      {p.name}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <h2 className="text-xl font-semibold mb-4 text-foreground">
-                Questions
-              </h2>
-
-              {quiz.questions.length === 0 ? (
-                <p className="text-text-secondary">
-                  This quiz has no questions yet.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {quiz.questions.map((question, index) => {
-                    return (
-                      <div
-                        key={question.id}
-                        className={`p-4 rounded-lg border ${
-                          activeQuestion === question.id
-                            ? "border-green-500 bg-accent"
-                            : question.hasResponses
-                            ? "border-primary bg-accent/50"
-                            : "border-border"
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h3 className="font-medium text-foreground">
-                              {index + 1}. {question.text}
-                            </h3>
-                            <p className="text-sm text-text-secondary mt-1">
-                              {question.type === 0
-                                ? "Single choice"
-                                : question.type === 1
-                                ? "Multiple choice"
-                                : "Free text"}
-                            </p>
-                          </div>
-                          <div>
-                            {activeQuestion === question.id ? (
-                              <button
-                                className="bg-secondary text-white py-1 px-3 rounded-md hover:bg-secondary-hover transition text-sm"
-                                onClick={handleEndQuestion}
-                              >
-                                End Question
-                              </button>
-                            ) : (
-                              <button
-                                className="bg-primary text-white py-1 px-3 rounded-md hover:bg-primary-hover transition text-sm"
-                                onClick={() => handleStartQuestion(index)}
-                                disabled={activeQuestion !== null}
-                              >
-                                Start Question
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        {question.hasResponses &&
-                          activeQuestion !== question.id && (
-                            <div className="mt-3 pt-3 border-t border-border">
-                              <h4 className="font-medium text-sm mb-2 text-foreground">
-                                Results:
-                              </h4>
-                              {renderQuestionResult(question)}
-                            </div>
-                          )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-        {quiz.status === QuizStatus.Completed && (
-          <div>
-            <div className="bg-green-100 text-green-800 p-4 rounded-md mb-6">
-              <h2 className="text-xl font-semibold mb-2">Quiz completed!</h2>
-              <p>
-                This quiz was completed on{" "}
-                <DateDisplay date={quiz.endedAt} formatString="PPP p" />.
-              </p>
-            </div>
-
-            <button
-              className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
-              onClick={handleViewResults}
-            >
-              View Results
-            </button>
-          </div>
-        )}
+        <button
+          className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
+          onClick={() => router.push(`/quiz/${quiz.publicId}/results`)}
+        >
+          View Results
+        </button>
       </div>
     </div>
   );

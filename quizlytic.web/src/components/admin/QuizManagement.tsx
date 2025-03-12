@@ -7,14 +7,13 @@ import {
   IoSave,
   IoTrash,
   IoPlayCircle,
-  IoPauseCircle,
-  IoStopCircle,
+  IoShareSocial,
 } from "react-icons/io5";
 import { useAuth } from "@/hooks/useAuth";
-import { requireAuth } from "@/lib/auth";
 import { quizApi } from "@/lib/api-client";
 import { Quiz, QuizStatus, QuizMode } from "@/lib/types";
 import DateDisplay from "@/components/DateDisplay";
+import QuizHost from "@/components/quiz/QuizHost";
 
 interface QuizManagementProps {
   quizId: number;
@@ -24,6 +23,7 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
   const router = useRouter();
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [qrCode, setQrCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -34,17 +34,12 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
   const [hasCorrectAnswers, setHasCorrectAnswers] = useState(true);
   const [quizMode, setQuizMode] = useState<QuizMode>(QuizMode.RealTime);
   const [allowAnonymous, setAllowAnonymous] = useState(false);
+  const [showQuizControls, setShowQuizControls] = useState(false);
 
   useEffect(() => {
     if (!isLoading) {
-      if (!isAuthenticated) {
+      if (!isAuthenticated || !isAdmin) {
         router.push("/");
-        return;
-      }
-
-      if (!isAdmin) {
-        router.push("/");
-        return;
       }
     }
   }, [isAuthenticated, isAdmin, isLoading, router]);
@@ -60,6 +55,17 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
         setHasCorrectAnswers(data.hasCorrectAnswers || false);
         setQuizMode(data.mode);
         setAllowAnonymous(data.allowAnonymous);
+
+        if (data.pinCode) {
+          try {
+            const joinUrl = `${window.location.origin}/join?pin=${data.pinCode}`;
+            const QRCode = await import("qrcode");
+            const qrDataUrl = await QRCode.toDataURL(joinUrl);
+            setQrCode(qrDataUrl);
+          } catch (qrErr) {
+            console.error("Failed to generate QR code:", qrErr);
+          }
+        }
       } catch (err) {
         console.error("Error loading quiz:", err);
         setError("Could not load quiz. Please check API connection.");
@@ -106,10 +112,7 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
       setError("Could not update quiz. Please try again.");
     } finally {
       setSaving(false);
-
-      if (successMessage) {
-        setTimeout(() => setSuccessMessage(""), 3000);
-      }
+      setTimeout(() => setSuccessMessage(""), 3000);
     }
   };
 
@@ -118,6 +121,10 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
       const updatedQuiz = await quizApi.start(quizId);
       setQuiz(updatedQuiz);
       setSuccessMessage("Quiz started successfully");
+
+      if (updatedQuiz.mode === QuizMode.RealTime) {
+        setShowQuizControls(true);
+      }
     } catch (err) {
       console.error("Error starting quiz:", err);
       setError("Could not start quiz. Please try again.");
@@ -140,6 +147,37 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
     }
   };
 
+  const copyJoinLink = () => {
+    if (quiz) {
+      const joinUrl = `${window.location.origin}/join?pin=${quiz.pinCode}`;
+      navigator.clipboard.writeText(joinUrl);
+      setSuccessMessage("Join link copied to clipboard");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    }
+  };
+
+  if (
+    quiz?.status === QuizStatus.Active &&
+    showQuizControls &&
+    quiz.mode === QuizMode.RealTime
+  ) {
+    return (
+      <div>
+        <div className="container mx-auto px-4 py-2 max-w-4xl">
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={() => setShowQuizControls(false)}
+              className="bg-secondary text-white py-2 px-4 rounded-md hover:bg-secondary-hover transition"
+            >
+              Back to Quiz Properties
+            </button>
+          </div>
+        </div>
+        <QuizHost quizId={quizId} isAdminView={true} />
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="bg-card rounded-lg shadow p-6">
@@ -147,13 +185,24 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
           <h1 className="text-xl font-bold text-foreground">
             {loading ? "Loading Quiz..." : `Manage Quiz: ${quiz?.title}`}
           </h1>
-          <button
-            onClick={() => router.push("/admin")}
-            className="flex items-center text-primary hover:text-primary-hover transition"
-          >
-            <IoArrowBack className="h-5 w-5 mr-1" />
-            <span className="hidden sm:inline">Back to Admin</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            {quiz?.status === QuizStatus.Active &&
+              quiz?.mode === QuizMode.RealTime && (
+                <button
+                  onClick={() => setShowQuizControls(true)}
+                  className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition"
+                >
+                  Manage Live Quiz
+                </button>
+              )}
+            <button
+              onClick={() => router.push("/admin")}
+              className="flex items-center text-primary hover:text-primary-hover transition"
+            >
+              <IoArrowBack className="h-5 w-5 mr-1" />
+              <span className="hidden sm:inline">Back to Admin</span>
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -207,6 +256,35 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
                   <span className="text-sm text-text-secondary">Ended</span>
                   <div className="font-medium">
                     <DateDisplay date={quiz.endedAt} formatString="PP" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6 bg-accent/50 rounded-md p-4">
+              <div>
+                <h3 className="font-medium mb-3">Quiz Access</h3>
+                <p className="text-sm text-text-secondary mb-4">
+                  Participants can join this quiz using the PIN code or by
+                  scanning the QR code.
+                </p>
+                <button
+                  onClick={copyJoinLink}
+                  className="flex items-center text-primary hover:text-primary-hover transition"
+                >
+                  <IoShareSocial className="h-5 w-5 mr-1" />
+                  Copy Join Link
+                </button>
+              </div>
+              {qrCode && (
+                <div className="flex flex-col items-center">
+                  <h3 className="font-medium mb-2">QR Code</h3>
+                  <div className="border border-border p-2 rounded-md bg-white">
+                    <img
+                      src={qrCode}
+                      alt="QR code to join quiz"
+                      className="w-40 h-40"
+                    />
                   </div>
                 </div>
               )}
@@ -277,7 +355,10 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
                         disabled={quiz.status !== QuizStatus.Created}
                       />
                       <label htmlFor="modeRealTime" className="text-foreground">
-                        Real-time Quiz
+                        Real-time Quiz{" "}
+                        <span className="text-text-secondary text-sm">
+                          (host controls question progression)
+                        </span>
                       </label>
                     </div>
                     <div className="flex items-center">
@@ -294,7 +375,10 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
                         htmlFor="modeSelfPaced"
                         className="text-foreground"
                       >
-                        Self-paced Survey
+                        Self-paced Survey{" "}
+                        <span className="text-text-secondary text-sm">
+                          (participants complete at their own pace)
+                        </span>
                       </label>
                     </div>
                   </div>
@@ -372,6 +456,13 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
                     >
                       <p className="font-medium">
                         Question {index + 1}: {question.text}
+                      </p>
+                      <p className="text-sm text-text-secondary mt-1">
+                        {question.type === 0
+                          ? "Single choice"
+                          : question.type === 1
+                          ? "Multiple choice"
+                          : "Free text"}
                       </p>
                     </div>
                   ))}
