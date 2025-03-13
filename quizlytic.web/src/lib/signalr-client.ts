@@ -764,7 +764,9 @@ export const useQuizParticipant = () => {
 
     if (!isConnected) {
       try {
+        await new Promise((resolve) => setTimeout(resolve, 500));
         const reconnected = await reconnect();
+        await new Promise((resolve) => setTimeout(resolve, 500));
         if (!reconnected) {
           setError("Could not connect to server. Please try again.");
           setJoinStatus("failed");

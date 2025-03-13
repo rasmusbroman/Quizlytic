@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuizParticipant, ConnectionState } from "@/lib/signalr-client";
 import { quizApi } from "@/lib/api-client";
 import ConnectionStatusIndicator from "@/components/common/ConnectionStatusIndicator";
@@ -49,6 +49,16 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
     Map<number, { answerId?: number; freeText?: string }>
   >(new Map());
   const [apiLoading, setApiLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialPinCode && initialParticipantName && joinStatus === "idle") {
+      const timer = setTimeout(() => {
+        joinQuiz(initialPinCode, initialParticipantName);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [initialPinCode, initialParticipantName, joinStatus, joinQuiz]);
 
   const renderConnectionStatus = () => {
     if (connectionStatus === ConnectionState.Connected && !error) {
@@ -203,61 +213,81 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
   };
 
   if (!quizInfo && !isUsingApi) {
-    return (
-      <div className="max-w-md mx-auto my-8 p-6 card">
-        <h1 className="text-2xl font-bold mb-6">Join a Quiz</h1>
-
-        {renderConnectionStatus()}
-
-        {joinStatus === "pending" ? (
+    if (initialPinCode && initialParticipantName && joinStatus === "pending") {
+      return (
+        <div className="max-w-md mx-auto my-8 p-6 card">
           <div className="text-center p-4">
             <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary mb-2"></div>
             <p>Joining quiz...</p>
           </div>
-        ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              joinQuiz(pinCode, participantName);
-            }}
-          >
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-1">Quiz Code</label>
-              <input
-                type="text"
-                className="input"
-                value={pinCode}
-                onChange={(e) => setPinCode(e.target.value)}
-                placeholder="Enter 6-digit code"
-                required
-              />
-            </div>
+        </div>
+      );
+    }
+    if (!initialPinCode || !initialParticipantName || joinStatus === "failed") {
+      return (
+        <div className="max-w-md mx-auto my-8 p-6 card">
+          <h1 className="text-2xl font-bold mb-6">Join a Quiz</h1>
 
-            <div className="mb-6">
-              <label className="block text-gray-700 mb-1">Your Name</label>
-              <input
-                type="text"
-                className="input"
-                value={participantName}
-                onChange={(e) => setParticipantName(e.target.value)}
-                placeholder="Enter your name"
-              />
-            </div>
+          {renderConnectionStatus()}
 
-            <button
-              type="submit"
-              className="btn-primary w-full"
-              disabled={
-                joinStatus === "pending" ||
-                connectionStatus === ConnectionState.Connecting
-              }
+          {joinStatus === "pending" ? (
+            <div className="text-center p-4">
+              <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary mb-2"></div>
+              <p>Joining quiz...</p>
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                joinQuiz(pinCode, participantName);
+              }}
             >
-              {connectionStatus !== ConnectionState.Connected
-                ? "Connect & Join Quiz"
-                : "Join Quiz"}
-            </button>
-          </form>
-        )}
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-1">Quiz Code</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={pinCode}
+                  onChange={(e) => setPinCode(e.target.value)}
+                  placeholder="Enter 6-digit code"
+                  required
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-gray-700 mb-1">Your Name</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={participantName}
+                  onChange={(e) => setParticipantName(e.target.value)}
+                  placeholder="Enter your name"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn-primary w-full"
+                disabled={
+                  joinStatus === "pending" ||
+                  connectionStatus === ConnectionState.Connecting
+                }
+              >
+                {connectionStatus !== ConnectionState.Connected
+                  ? "Connect & Join Quiz"
+                  : "Join Quiz"}
+              </button>
+            </form>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div className="max-w-md mx-auto my-8 p-6 card">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary mb-2"></div>
+          <p>Initializing connection...</p>
+        </div>
       </div>
     );
   }

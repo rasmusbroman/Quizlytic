@@ -1,32 +1,36 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import QuizParticipant from "@/components/quiz/QuizParticipant";
 
 export default function JoinQuizPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialPin = searchParams.get("pin") || "";
+  const initialName = searchParams.get("name") || "";
 
   const [pinCode, setPinCode] = useState(initialPin);
   const [participantName, setParticipantName] = useState("");
-  const [showParticipant, setShowParticipant] = useState(false);
+
+  if (initialPin && initialName) {
+    return (
+      <QuizParticipant
+        initialPinCode={initialPin}
+        initialParticipantName={initialName}
+      />
+    );
+  }
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
     if (pinCode && participantName) {
-      setShowParticipant(true);
+      router.push(
+        `/join?pin=${pinCode}&name=${encodeURIComponent(participantName)}`
+      );
     }
   };
-
-  if (showParticipant) {
-    return (
-      <QuizParticipant
-        initialPinCode={pinCode}
-        initialParticipantName={participantName}
-      />
-    );
-  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-md">

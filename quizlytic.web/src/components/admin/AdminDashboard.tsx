@@ -23,6 +23,7 @@ const AdminDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [actionMenuQuiz, setActionMenuQuiz] = useState<number | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading) {
@@ -171,13 +172,19 @@ const AdminDashboard: React.FC = () => {
             <div className="relative">
               <button
                 className="flex items-center px-4 py-2 border border-border rounded-md text-foreground hover:bg-accent"
-                onClick={() => setSelectedStatus(selectedStatus ? null : "0")}
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               >
                 <IoFilter className="h-5 w-5 mr-2" />
-                <span>Filter</span>
+                <span>
+                  {selectedStatus === null
+                    ? "Filter"
+                    : `Filter: ${getStatusLabel(
+                        Number(selectedStatus) as QuizStatus
+                      )}`}
+                </span>
               </button>
 
-              {selectedStatus !== null && (
+              {isDropdownOpen && (
                 <div className="absolute right-0 mt-1 w-48 bg-card rounded-md shadow-lg z-10 border border-border">
                   {Object.values(QuizStatus)
                     .filter((v) => !isNaN(Number(v)))
@@ -189,14 +196,20 @@ const AdminDashboard: React.FC = () => {
                             ? "bg-accent text-primary"
                             : "text-foreground hover:bg-accent"
                         }`}
-                        onClick={() => setSelectedStatus(status.toString())}
+                        onClick={() => {
+                          setSelectedStatus(status.toString());
+                          setIsDropdownOpen(false);
+                        }}
                       >
                         {getStatusLabel(status as QuizStatus)}
                       </button>
                     ))}
                   <button
                     className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent"
-                    onClick={() => setSelectedStatus(null)}
+                    onClick={() => {
+                      setSelectedStatus(null);
+                      setIsDropdownOpen(false);
+                    }}
                   >
                     Show All
                   </button>
