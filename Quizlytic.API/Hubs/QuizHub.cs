@@ -116,35 +116,80 @@ namespace Quizlytic.API.Hubs
 
         public async Task SubmitAnswer(int questionId, int? answerId, string freeTextAnswer)
         {
-            var question = await _context.Questions.FindAsync(questionId);
-            if (question == null) return;
-
-            var participant = await _context.Participants.FirstOrDefaultAsync(p => p.ConnectionId == Context.ConnectionId);
-            if (participant == null) return;
-
-            var quiz = await _context.Quizzes.FindAsync(question.QuizId);
-            if (quiz == null) return;
-
-            var response = new Response
+            try
             {
-                QuestionId = questionId,
-                AnswerId = answerId,
-                ParticipantId = participant.Id,
-                FreeTextResponse = freeTextAnswer
-            };
-            _context.Responses.Add(response);
-            await _context.SaveChangesAsync();
+                Console.WriteLine($"SubmitAnswer called with questionId: {questionId}, answerId: {answerId}, freeTextResponse: {(freeTextAnswer != null ? "not null" : "null")}, ConnectionId: {Context.ConnectionId}");
 
-            string groupName = $"quiz-{question.QuizId}";
+                var question = await _context.Questions.FindAsync(questionId);
+                if (question == null)
+                {
+                    Console.WriteLine($"Question with ID {questionId} not found");
+                    await Clients.Caller.SendAsync("SubmitError", "Question not found");
+                    return;
+                }
 
-            if (quiz.Mode == QuizMode.RealTime)
-            {
-                await Clients.Group($"{groupName}-host").SendAsync("NewResponse", questionId, participant.Id);
+                var participant = await _context.Participants
+                    .FirstOrDefaultAsync(p => p.ConnectionId == Context.ConnectionId);
+
+                if (participant == null)
+                {
+                    Console.WriteLine($"Participant with ConnectionId {Context.ConnectionId} not found");
+                    await Clients.Caller.SendAsync("SubmitError", "Participant not found. You may need to rejoin the quiz.");
+                    return;
+                }
+
+                var quiz = await _context.Quizzes.FindAsync(question.QuizId);
+                if (quiz == null)
+                {
+                    Console.WriteLine($"Quiz with ID {question.QuizId} not found");
+                    await Clients.Caller.SendAsync("SubmitError", "Quiz not found");
+                    return;
+                }
+
+                var existingResponse = await _context.Responses
+                    .FirstOrDefaultAsync(r => r.QuestionId == questionId && r.ParticipantId == participant.Id);
+
+                string safeTextResponse = freeTextAnswer ?? string.Empty;
+
+                if (existingResponse != null)
+                {
+                    existingResponse.AnswerId = answerId;
+                    existingResponse.FreeTextResponse = safeTextResponse;
+                    _context.Responses.Update(existingResponse);
+                }
+                else
+                {
+                    var response = new Response
+                    {
+                        QuestionId = questionId,
+                        AnswerId = answerId,
+                        ParticipantId = participant.Id,
+                        FreeTextResponse = safeTextResponse,
+                        SubmittedAt = DateTime.UtcNow
+                    };
+                    _context.Responses.Add(response);
+                }
+
+                await _context.SaveChangesAsync();
+
+                string groupName = $"quiz-{question.QuizId}";
+
+                if (quiz.Mode == QuizMode.RealTime)
+                {
+                    await Clients.Group($"{groupName}-host").SendAsync("NewResponse", questionId, participant.Id);
+                }
+
+                if (quiz.Mode == QuizMode.SelfPaced)
+                {
+                    await Clients.Caller.SendAsync("ResponseSaved", questionId);
+                }
             }
-
-            if (quiz.Mode == QuizMode.SelfPaced)
+            catch (Exception ex)
             {
-                await Clients.Caller.SendAsync("ResponseSaved", questionId);
+                Console.WriteLine($"Error in SubmitAnswer: {ex.Message}");
+                Console.WriteLine(ex.StackTrace);
+                await Clients.Caller.SendAsync("SubmitError", "Error saving your answer. Please try again.");
+                throw;
             }
         }
 

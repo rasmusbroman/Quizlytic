@@ -128,7 +128,7 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
         await submitApiSurvey();
       }
     } else {
-      await submitAnswer(selectedAnswer, undefined);
+      await submitAnswer(selectedAnswer, "");
       setHasAnswered(true);
     }
   };
@@ -151,7 +151,7 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
         await submitApiSurvey();
       }
     } else {
-      await submitAnswer(selectedAnswers[0], undefined);
+      await submitAnswer(selectedAnswers[0], "");
       setHasAnswered(true);
     }
   };
@@ -338,7 +338,7 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
             </div>
           ) : (
             <div>
-              {currentQuestion.type === "SingleChoice" && (
+              {currentQuestion.type === 0 && (
                 <div className="mb-6 space-y-3">
                   {currentQuestion.answers.map((answer) => (
                     <div
@@ -359,12 +359,11 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
                     onClick={handleSingleChoiceAnswer}
                     disabled={selectedAnswer === null}
                   >
-                    Skicka svar
+                    Submit Answer
                   </button>
                 </div>
               )}
-
-              {currentQuestion.type === "MultipleChoice" && (
+              {currentQuestion.type === 1 && (
                 <div className="mb-6 space-y-3">
                   {currentQuestion.answers.map((answer) => (
                     <div
@@ -392,19 +391,18 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
                     onClick={handleMultipleChoiceAnswer}
                     disabled={selectedAnswers.length === 0}
                   >
-                    Skicka svar
+                    Submit Answer
                   </button>
                 </div>
               )}
-
-              {currentQuestion.type === "FreeText" && (
+              {currentQuestion.type === 2 && (
                 <div className="mb-6">
                   <textarea
                     className="input mb-4"
                     rows={4}
                     value={freeTextAnswer}
                     onChange={(e) => setFreeTextAnswer(e.target.value)}
-                    placeholder="Skriv ditt svar här..."
+                    placeholder="Write your answer here..."
                   />
 
                   <button
@@ -412,7 +410,7 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
                     onClick={handleFreeTextAnswer}
                     disabled={!freeTextAnswer.trim()}
                   >
-                    Skicka svar
+                    Submit Answer
                   </button>
                 </div>
               )}
@@ -492,7 +490,6 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
             </div>
           )}
         </div>
-
         <div className="mb-6">
           {activeQuestion.type === 0 && (
             <div className="space-y-3">
@@ -537,7 +534,55 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
             </div>
           )}
 
-          {activeQuestion.type === 1 && <div>{}</div>}
+          {activeQuestion.type === 1 && (
+            <div className="space-y-3">
+              {activeQuestion.answers.map((answer) => (
+                <div
+                  key={answer.id}
+                  className="flex items-center p-4 rounded-lg border hover:bg-gray-50"
+                >
+                  <input
+                    type="checkbox"
+                    id={`answer-${answer.id}`}
+                    checked={selectedAnswers.includes(answer.id)}
+                    onChange={() => handleCheckboxChange(answer.id)}
+                    className="mr-3"
+                  />
+                  <label
+                    htmlFor={`answer-${answer.id}`}
+                    className="cursor-pointer flex-grow"
+                  >
+                    {answer.text}
+                  </label>
+                </div>
+              ))}
+
+              <div className="flex justify-between mt-4">
+                <button
+                  className="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition"
+                  onClick={() =>
+                    isUsingApi
+                      ? setApiCurrentQuestionIndex(
+                          Math.max(0, apiCurrentQuestionIndex - 1)
+                        )
+                      : previousSurveyQuestion()
+                  }
+                  disabled={currentIndex === 0}
+                >
+                  Previous
+                </button>
+                <button
+                  className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
+                  onClick={handleMultipleChoiceAnswer}
+                  disabled={selectedAnswers.length === 0}
+                >
+                  {currentIndex === activeSurveyQuestions.length - 1
+                    ? "Submit"
+                    : "Next"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {activeQuestion.type === 2 && (
             <div>

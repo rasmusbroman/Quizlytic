@@ -102,6 +102,12 @@ export const quizApi = {
     });
   },
 
+  end: async (id: number): Promise<Quiz> => {
+    return fetchJson<Quiz>(`${API_URL}/api/quizzes/${id}/end`, {
+      method: "POST",
+    });
+  },
+
   getQrCode: async (pinCode: string): Promise<{ url: string }> => {
     return fetchJson<{ url: string }>(`${API_URL}/api/qrcode/${pinCode}`);
   },

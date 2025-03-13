@@ -790,7 +790,6 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
             <DateDisplay date={quiz.endedAt} formatString="PPP p" />.
           </p>
         </div>
-
         <button
           className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
           onClick={() => router.push(`/quiz/${quiz.publicId}/results`)}

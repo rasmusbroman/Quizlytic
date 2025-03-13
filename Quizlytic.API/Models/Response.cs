@@ -9,7 +9,7 @@
         public Answer Answer { get; set; }
         public int ParticipantId { get; set; }
         public Participant Participant { get; set; }
-        public string FreeTextResponse { get; set; }
+        public string? FreeTextResponse { get; set; }
         public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
     }
 }

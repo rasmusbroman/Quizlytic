@@ -79,6 +79,19 @@ namespace Quizlytic.API.Endpoints
                 return Results.Created($"/api/quizzes/{quiz.Id}", quiz.ToDetailDto());
             });
 
+            quizEndpoints.MapPost("/{id}/end", async (int id, QuizlyticDbContext db, IHubContext<QuizHub> hubContext) =>
+            {
+                var quiz = await db.Quizzes.FindAsync(id);
+                if (quiz == null) return Results.NotFound();
+
+                quiz.Status = QuizStatus.Completed;
+                quiz.EndedAt = DateTime.UtcNow;
+
+                await db.SaveChangesAsync();
+                await hubContext.Clients.Group($"quiz-{id}").SendAsync("QuizEnded");
+                return Results.Ok(quiz.ToDetailDto());
+            });
+
             quizEndpoints.MapPut("/{id}", async (int id, UpdateQuizDto quizDto, QuizlyticDbContext db) =>
             {
                 var quiz = await db.Quizzes.FindAsync(id);

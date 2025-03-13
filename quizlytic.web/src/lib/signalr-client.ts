@@ -322,11 +322,12 @@ export const useSignalR = () => {
       }
 
       try {
+        const safeTextResponse = freeTextAnswer || "";
         await connectionRef.current.invoke(
           "SubmitAnswer",
           questionId,
           answerId,
-          freeTextAnswer || null
+          safeTextResponse
         );
         return true;
       } catch (error) {
@@ -524,6 +525,11 @@ export const useQuizHost = (quizId: number) => {
       }
     );
 
+    const removeSubmitError = onEvent("SubmitError", (errorMessage: string) => {
+      console.error("Submit error from server:", errorMessage);
+      setError(errorMessage);
+    });
+
     return () => {
       removeParticipantJoined();
       removeParticipantLeft();
@@ -531,6 +537,7 @@ export const useQuizHost = (quizId: number) => {
       removeQuestionEnded();
       removeQuestionStarted();
       removeActiveParticipantsList();
+      removeSubmitError();
     };
   }, [isConnected, onEvent]);
 
@@ -661,7 +668,7 @@ export const useQuizParticipant = () => {
     id: number;
     text: string;
     imageUrl?: string;
-    type: string;
+    type: number;
     answers: { id: number; text: string }[];
   } | null>(null);
   const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
@@ -800,15 +807,24 @@ export const useQuizParticipant = () => {
     }
 
     try {
+      console.log("Submitting answer:", {
+        questionId:
+          currentQuestion?.id ||
+          surveyQuestions[currentSurveyQuestionIndex]?.id,
+        answerId,
+        freeTextAnswer,
+      });
+
       if (currentQuestion) {
         return await submitAnswerBase(
           currentQuestion.id,
           answerId,
-          freeTextAnswer
+          freeTextAnswer || null
         );
       } else if (surveyQuestions.length > 0) {
         const currentSurveyQuestion =
           surveyQuestions[currentSurveyQuestionIndex];
+
         if (currentSurveyQuestion) {
           setSurveyResponses((prev) => {
             const newMap = new Map(prev);
@@ -819,11 +835,17 @@ export const useQuizParticipant = () => {
             return newMap;
           });
 
-          return await submitAnswerBase(
+          console.log(
+            "Submitting survey answer for question:",
+            currentSurveyQuestion.id
+          );
+          const result = await submitAnswerBase(
             currentSurveyQuestion.id,
             answerId,
-            freeTextAnswer
+            freeTextAnswer || null
           );
+
+          return result;
         }
       }
       return false;
