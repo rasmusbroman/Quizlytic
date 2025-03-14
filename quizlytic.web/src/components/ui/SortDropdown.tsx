@@ -1,27 +1,34 @@
 import { useState } from "react";
 import { FiFilter } from "react-icons/fi";
-import { SortOption } from "../hooks/useQuizList";
+
+export interface SortOption {
+  label: string;
+  value: string;
+  sortFn: (a: any, b: any) => number;
+}
 
 interface SortDropdownProps {
   sortOptions: SortOption[];
   currentSort: string;
   onSelectSort: (value: string) => void;
+  className?: string;
 }
 
 export default function SortDropdown({
   sortOptions,
   currentSort,
   onSelectSort,
+  className = "",
 }: SortDropdownProps) {
   const [showOptions, setShowOptions] = useState(false);
 
   return (
-    <div className="relative">
+    <div className={`relative ${className}`}>
       <button
         onClick={() => setShowOptions(!showOptions)}
-        className="flex items-center px-3 py-1 border border-border rounded-md text-foreground hover:bg-accent"
+        className="flex items-center px-4 py-2 border border-border rounded-md text-foreground hover:bg-accent"
       >
-        <span className="mr-2 hidden sm:inline">Sort</span>
+        <span className="mr-2 sm:inline">Sort</span>
         <FiFilter className="w-5 h-5" />
       </button>
 

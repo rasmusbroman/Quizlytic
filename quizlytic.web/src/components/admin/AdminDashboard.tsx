@@ -13,6 +13,7 @@ import { requireAuth } from "@/lib/auth";
 import { quizApi } from "@/lib/api-client";
 import { Quiz, QuizStatus } from "@/lib/types";
 import DateDisplay from "@/components/DateDisplay";
+import SortDropdown, { SortOption } from "@/components/ui/SortDropdown";
 
 const AdminDashboard: React.FC = () => {
   const router = useRouter();
@@ -24,6 +25,32 @@ const AdminDashboard: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [actionMenuQuiz, setActionMenuQuiz] = useState<number | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [currentSort, setCurrentSort] = useState<string>("date-desc");
+
+  const sortOptions: SortOption[] = [
+    {
+      label: "Title (A-Z)",
+      value: "title-asc",
+      sortFn: (a: Quiz, b: Quiz) => a.title.localeCompare(b.title),
+    },
+    {
+      label: "Title (Z-A)",
+      value: "title-desc",
+      sortFn: (a: Quiz, b: Quiz) => b.title.localeCompare(a.title),
+    },
+    {
+      label: "Newest first",
+      value: "date-desc",
+      sortFn: (a: Quiz, b: Quiz) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    },
+    {
+      label: "Oldest first",
+      value: "date-asc",
+      sortFn: (a: Quiz, b: Quiz) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    },
+  ];
 
   useEffect(() => {
     if (!isLoading) {
@@ -57,14 +84,21 @@ const AdminDashboard: React.FC = () => {
     }
   }, [isAuthenticated, isAdmin]);
 
-  const filteredQuizzes = quizzes.filter((quiz) => {
-    const matchesSearch = quiz.title
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      selectedStatus === null || quiz.status.toString() === selectedStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredQuizzes = quizzes
+    .filter((quiz) => {
+      const matchesSearch = quiz.title
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      const matchesStatus =
+        selectedStatus === null || quiz.status.toString() === selectedStatus;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const sortOption = sortOptions.find(
+        (option) => option.value === currentSort
+      );
+      return sortOption?.sortFn ? sortOption.sortFn(a, b) : 0;
+    });
 
   const handleQuizClick = (id: number) => {
     router.push(`/admin/${id}`);
@@ -169,52 +203,59 @@ const AdminDashboard: React.FC = () => {
               </span>
             </div>
 
-            <div className="relative">
-              <button
-                className="flex items-center px-4 py-2 border border-border rounded-md text-foreground hover:bg-accent"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              >
-                <IoFilter className="h-5 w-5 mr-2" />
-                <span>
-                  {selectedStatus === null
-                    ? "Filter"
-                    : `Filter: ${getStatusLabel(
-                        Number(selectedStatus) as QuizStatus
-                      )}`}
-                </span>
-              </button>
+            <div className="flex gap-2">
+              <div className="relative">
+                <button
+                  className="flex items-center px-4 py-2 border border-border rounded-md text-foreground hover:bg-accent"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                >
+                  <IoFilter className="h-5 w-5 mr-2" />
+                  <span>
+                    {selectedStatus === null
+                      ? "Filter"
+                      : `Filter: ${getStatusLabel(
+                          Number(selectedStatus) as QuizStatus
+                        )}`}
+                  </span>
+                </button>
 
-              {isDropdownOpen && (
-                <div className="absolute right-0 mt-1 w-48 bg-card rounded-md shadow-lg z-10 border border-border">
-                  {Object.values(QuizStatus)
-                    .filter((v) => !isNaN(Number(v)))
-                    .map((status) => (
-                      <button
-                        key={status}
-                        className={`block w-full text-left px-4 py-2 text-sm ${
-                          selectedStatus === status.toString()
-                            ? "bg-accent text-primary"
-                            : "text-foreground hover:bg-accent"
-                        }`}
-                        onClick={() => {
-                          setSelectedStatus(status.toString());
-                          setIsDropdownOpen(false);
-                        }}
-                      >
-                        {getStatusLabel(status as QuizStatus)}
-                      </button>
-                    ))}
-                  <button
-                    className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent"
-                    onClick={() => {
-                      setSelectedStatus(null);
-                      setIsDropdownOpen(false);
-                    }}
-                  >
-                    Show All
-                  </button>
-                </div>
-              )}
+                {isDropdownOpen && (
+                  <div className="absolute right-0 mt-1 w-48 bg-card rounded-md shadow-lg z-10 border border-border">
+                    {Object.values(QuizStatus)
+                      .filter((v) => !isNaN(Number(v)))
+                      .map((status) => (
+                        <button
+                          key={status}
+                          className={`block w-full text-left px-4 py-2 text-sm ${
+                            selectedStatus === status.toString()
+                              ? "bg-accent text-primary"
+                              : "text-foreground hover:bg-accent"
+                          }`}
+                          onClick={() => {
+                            setSelectedStatus(status.toString());
+                            setIsDropdownOpen(false);
+                          }}
+                        >
+                          {getStatusLabel(status as QuizStatus)}
+                        </button>
+                      ))}
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent"
+                      onClick={() => {
+                        setSelectedStatus(null);
+                        setIsDropdownOpen(false);
+                      }}
+                    >
+                      Show All
+                    </button>
+                  </div>
+                )}
+              </div>
+              <SortDropdown
+                sortOptions={sortOptions}
+                currentSort={currentSort}
+                onSelectSort={setCurrentSort}
+              />
             </div>
           </div>
         </div>
