@@ -19,7 +19,6 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
   const [freeTextAnswer, setFreeTextAnswer] = useState("");
-  const [hasAnswered, setHasAnswered] = useState(false);
   const [surveyCompleted, setSurveyCompleted] = useState(false);
 
   const {
@@ -40,6 +39,8 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
     nextSurveyQuestion,
     previousSurveyQuestion,
     surveyResponses,
+    hasAnswered,
+    setHasAnswered,
   } = useQuizParticipant();
 
   const [isUsingApi, setIsUsingApi] = useState(false);
@@ -59,6 +60,15 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
       return () => clearTimeout(timer);
     }
   }, [initialPinCode, initialParticipantName, joinStatus, joinQuiz]);
+
+  useEffect(() => {
+    if (currentQuestion) {
+      setHasAnswered(false);
+      setSelectedAnswer(null);
+      setSelectedAnswers([]);
+      setFreeTextAnswer("");
+    }
+  }, [currentQuestion?.id]);
 
   const renderConnectionStatus = () => {
     if (connectionStatus === ConnectionState.Connected && !error) {
@@ -128,7 +138,7 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
         await submitApiSurvey();
       }
     } else {
-      await submitAnswer(selectedAnswer, undefined);
+      await submitAnswer(selectedAnswer, "");
       setHasAnswered(true);
     }
   };
@@ -140,7 +150,7 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
       const currentQuestion = apiSurveyQuestions[apiCurrentQuestionIndex];
       setApiResponses((prev) => {
         const newMap = new Map(prev);
-        newMap.set(currentQuestion.id, { answerId: selectedAnswers[0] });
+        newMap.set(currentQuestion.id, { answerIds: [...selectedAnswers] });
         return newMap;
       });
 
@@ -151,7 +161,9 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
         await submitApiSurvey();
       }
     } else {
-      await submitAnswer(selectedAnswers[0], undefined);
+      for (const answerId of selectedAnswers) {
+        await submitAnswer(answerId, "");
+      }
       setHasAnswered(true);
     }
   };
@@ -182,12 +194,24 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
   const submitApiSurvey = async () => {
     setApiLoading(true);
     try {
-      const answers = Array.from(apiResponses.entries()).map(
-        ([questionId, response]) => ({
-          questionId,
-          answerId: response.answerId,
-          freeTextResponse: response.freeText,
-        })
+      const answers = Array.from(apiResponses.entries()).flatMap(
+        ([questionId, response]) => {
+          if (response.answerIds && response.answerIds.length > 0) {
+            return response.answerIds.map((answerId) => ({
+              questionId,
+              answerId,
+              freeTextResponse: "",
+            }));
+          } else {
+            return [
+              {
+                questionId,
+                answerId: response.answerId,
+                freeTextResponse: response.freeText || "",
+              },
+            ];
+          }
+        }
       );
 
       await quizApi.submitSurveyResponses(pinCode, {
@@ -314,7 +338,7 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
         <div className="max-w-xl mx-auto my-8 p-6 card">
           <div className="mb-6">
             <h1 className="text-xl font-bold mb-1">{quizInfo.title}</h1>
-            <p className="text-gray-600">Ansluten som {participantName}</p>
+            <p className="text-gray-600">Connected as {participantName}</p>
           </div>
 
           <div className="mb-6">
@@ -333,12 +357,12 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
 
           {hasAnswered ? (
             <div className="bg-green-100 text-green-800 p-4 rounded">
-              <p className="font-medium">Ditt svar har skickats!</p>
-              <p>Vänta på att värden går vidare till nästa fråga.</p>
+              <p className="font-medium">Your answer has been submitted!</p>
+              <p>Waiting for the host to proceed to the next step...</p>
             </div>
           ) : (
             <div>
-              {currentQuestion.type === "SingleChoice" && (
+              {currentQuestion.type === 0 && (
                 <div className="mb-6 space-y-3">
                   {currentQuestion.answers.map((answer) => (
                     <div
@@ -359,12 +383,11 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
                     onClick={handleSingleChoiceAnswer}
                     disabled={selectedAnswer === null}
                   >
-                    Skicka svar
+                    Submit Answer
                   </button>
                 </div>
               )}
-
-              {currentQuestion.type === "MultipleChoice" && (
+              {currentQuestion.type === 1 && (
                 <div className="mb-6 space-y-3">
                   {currentQuestion.answers.map((answer) => (
                     <div
@@ -392,19 +415,18 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
                     onClick={handleMultipleChoiceAnswer}
                     disabled={selectedAnswers.length === 0}
                   >
-                    Skicka svar
+                    Submit Answer
                   </button>
                 </div>
               )}
-
-              {currentQuestion.type === "FreeText" && (
+              {currentQuestion.type === 2 && (
                 <div className="mb-6">
                   <textarea
                     className="input mb-4"
                     rows={4}
                     value={freeTextAnswer}
                     onChange={(e) => setFreeTextAnswer(e.target.value)}
-                    placeholder="Skriv ditt svar här..."
+                    placeholder="Write your answer here..."
                   />
 
                   <button
@@ -412,7 +434,7 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
                     onClick={handleFreeTextAnswer}
                     disabled={!freeTextAnswer.trim()}
                   >
-                    Skicka svar
+                    Submit Answer
                   </button>
                 </div>
               )}
@@ -427,12 +449,42 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
         <div className="max-w-xl mx-auto my-8 p-6 card">
           <div className="mb-6">
             <h1 className="text-xl font-bold mb-1">{quizInfo.title}</h1>
-            <p className="text-gray-600">Ansluten som {participantName}</p>
+            <p className="text-gray-600">Connected as {participantName}</p>
           </div>
-
           <div className="bg-blue-100 p-4 rounded mb-6">
-            <h2 className="text-lg font-semibold mb-2">Resultat</h2>
-            <p>Väntar på nästa fråga...</p>
+            <h2 className="text-lg font-semibold mb-2">Results</h2>
+            <p>
+              The host has closed this question. Waiting for the next
+              question...
+            </p>
+            {results.results && results.results.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-blue-200">
+                <h3 className="text-md font-medium mb-2">
+                  Answer Distribution:
+                </h3>
+                <div className="space-y-2">
+                  {results.results.map((result: any, index: number) => {
+                    const answerText =
+                      currentQuestion?.answers.find(
+                        (a) => a.id === result.answerId
+                      )?.text || `Option ${index + 1}`;
+                    return (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center"
+                      >
+                        <span>
+                          {result.answerId ? answerText : "No answer"}
+                        </span>
+                        <span className="font-medium">
+                          {result.count} responses
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -492,7 +544,6 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
             </div>
           )}
         </div>
-
         <div className="mb-6">
           {activeQuestion.type === 0 && (
             <div className="space-y-3">
@@ -537,7 +588,55 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
             </div>
           )}
 
-          {activeQuestion.type === 1 && <div>{}</div>}
+          {activeQuestion.type === 1 && (
+            <div className="space-y-3">
+              {activeQuestion.answers.map((answer) => (
+                <div
+                  key={answer.id}
+                  className="flex items-center p-4 rounded-lg border hover:bg-gray-50"
+                >
+                  <input
+                    type="checkbox"
+                    id={`answer-${answer.id}`}
+                    checked={selectedAnswers.includes(answer.id)}
+                    onChange={() => handleCheckboxChange(answer.id)}
+                    className="mr-3"
+                  />
+                  <label
+                    htmlFor={`answer-${answer.id}`}
+                    className="cursor-pointer flex-grow"
+                  >
+                    {answer.text}
+                  </label>
+                </div>
+              ))}
+
+              <div className="flex justify-between mt-4">
+                <button
+                  className="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition"
+                  onClick={() =>
+                    isUsingApi
+                      ? setApiCurrentQuestionIndex(
+                          Math.max(0, apiCurrentQuestionIndex - 1)
+                        )
+                      : previousSurveyQuestion()
+                  }
+                  disabled={currentIndex === 0}
+                >
+                  Previous
+                </button>
+                <button
+                  className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
+                  onClick={handleMultipleChoiceAnswer}
+                  disabled={selectedAnswers.length === 0}
+                >
+                  {currentIndex === activeSurveyQuestions.length - 1
+                    ? "Submit"
+                    : "Next"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {activeQuestion.type === 2 && (
             <div>

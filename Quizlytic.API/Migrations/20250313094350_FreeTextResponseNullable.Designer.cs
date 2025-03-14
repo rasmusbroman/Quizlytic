@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Quizlytic.API.Data;
@@ -11,9 +12,11 @@ using Quizlytic.API.Data;
 namespace Quizlytic.API.Migrations
 {
     [DbContext(typeof(QuizlyticDbContext))]
-    partial class QuizlyticDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250313094350_FreeTextResponseNullable")]
+    partial class FreeTextResponseNullable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -182,16 +185,12 @@ namespace Quizlytic.API.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("FreeTextResponse")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int>("ParticipantId")
                         .HasColumnType("integer");
 
                     b.Property<int>("QuestionId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("QuizId")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("SubmittedAt")
@@ -204,8 +203,6 @@ namespace Quizlytic.API.Migrations
                     b.HasIndex("ParticipantId");
 
                     b.HasIndex("QuestionId");
-
-                    b.HasIndex("QuizId");
 
                     b.ToTable("Responses");
                 });
@@ -261,19 +258,11 @@ namespace Quizlytic.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Quizlytic.API.Models.Quiz", "Quiz")
-                        .WithMany()
-                        .HasForeignKey("QuizId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
                     b.Navigation("Answer");
 
                     b.Navigation("Participant");
 
                     b.Navigation("Question");
-
-                    b.Navigation("Quiz");
                 });
 
             modelBuilder.Entity("Quizlytic.API.Models.Participant", b =>

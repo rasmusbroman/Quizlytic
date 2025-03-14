@@ -9,7 +9,8 @@ import { useActiveQuizzes } from "@/app/hooks/useActiveQuizzes";
 
 export default function HomePage() {
   const router = useRouter();
-  const { quizzes, isLoading, error, searchQuery, setSearchQuery } = useActiveQuizzes(6);
+  const { quizzes, isLoading, error, searchQuery, setSearchQuery } =
+    useActiveQuizzes(6);
 
   const handleShowAllQuizzes = () => {
     localStorage.setItem(
@@ -52,7 +53,6 @@ export default function HomePage() {
           >
             Create a Quiz
           </Link>
-
           <button
             onClick={() => router.push("/results")}
             className="w-full bg-accent text-primary py-3 px-4 rounded-md hover:bg-border transition"
@@ -95,10 +95,10 @@ export default function HomePage() {
         ) : quizzes.length > 0 ? (
           <div className="space-y-4">
             {quizzes.map((quiz) => (
-              <QuizCard 
-                key={quiz.id} 
-                quiz={quiz} 
-                onClick={(id) => router.push(`/quizzes/${id}`)} 
+              <QuizCard
+                key={quiz.id}
+                quiz={quiz}
+                onClick={(id) => router.push(`/quizzes/${id}`)}
               />
             ))}
           </div>

@@ -9,6 +9,8 @@ import {
   IoTrash,
   IoPlayCircle,
   IoShareSocial,
+  IoStop,
+  IoStatsChart,
 } from "react-icons/io5";
 import { useAuth } from "@/hooks/useAuth";
 import { quizApi } from "@/lib/api-client";
@@ -129,6 +131,32 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
     } catch (err) {
       console.error("Error starting quiz:", err);
       setError("Could not start quiz. Please try again.");
+    }
+  };
+
+  const handleEndQuiz = async () => {
+    if (
+      window.confirm(
+        "Are you sure you want to end this quiz? This will mark it as completed and no new responses will be accepted."
+      )
+    ) {
+      try {
+        setError("");
+        setSuccessMessage("");
+
+        if (quiz.mode === QuizMode.RealTime) {
+          const hubConnection = getConnection();
+          if (hubConnection.state === signalR.HubConnectionState.Connected) {
+            await hubConnection.invoke("EndQuiz", quizId);
+          }
+        }
+        const updatedQuiz = await quizApi.end(quizId);
+        setQuiz(updatedQuiz);
+        setSuccessMessage("Quiz has been ended successfully");
+      } catch (err) {
+        console.error("Error ending quiz:", err);
+        setError("Could not end the quiz. Please try again later.");
+      }
     }
   };
 
@@ -300,6 +328,25 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
                 >
                   <IoPlayCircle className="h-5 w-5 mr-1" />
                   Start Quiz
+                </button>
+              )}
+
+              {quiz.status === QuizStatus.Active && (
+                <button
+                  onClick={handleEndQuiz}
+                  className="flex items-center bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition"
+                >
+                  <IoStop className="h-5 w-5 mr-1" />
+                  End Quiz
+                </button>
+              )}
+              {quiz.status === QuizStatus.Completed && (
+                <button
+                  onClick={() => router.push(`/admin/${quiz.id}/results`)}
+                  className="flex items-center bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition"
+                >
+                  <IoStatsChart className="h-5 w-5 mr-1" />
+                  View Detailed Results
                 </button>
               )}
 

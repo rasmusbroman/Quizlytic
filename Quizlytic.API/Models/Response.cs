@@ -9,7 +9,9 @@
         public Answer Answer { get; set; }
         public int ParticipantId { get; set; }
         public Participant Participant { get; set; }
-        public string FreeTextResponse { get; set; }
+        public string FreeTextResponse { get; set; } = string.Empty;
         public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
+        public int QuizId { get; set; }
+        public Quiz Quiz { get; set; }
     }
 }
