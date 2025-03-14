@@ -714,9 +714,6 @@ export const useQuizParticipant = () => {
         setCurrentQuestion({ id, text, imageUrl, type, answers });
         setResults(null);
         setHasAnswered(false);
-        setSelectedAnswer(null);
-        setSelectedAnswers([]);
-        setFreeTextAnswer("");
       }
     );
 

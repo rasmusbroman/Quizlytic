@@ -86,6 +86,15 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
     );
   };
 
+  useEffect(() => {
+    if (currentQuestion) {
+      setHasAnswered(false);
+      setSelectedAnswer(null);
+      setSelectedAnswers([]);
+      setFreeTextAnswer("");
+    }
+  }, [currentQuestion?.id]);
+  
   const handleJoinQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pinCode.trim()) return;
