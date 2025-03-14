@@ -66,6 +66,12 @@ namespace Quizlytic.API.Data
             modelBuilder.Entity<Quiz>()
                 .HasIndex(q => q.PublicId)
                 .IsUnique();
+
+            modelBuilder.Entity<Response>()
+                .HasOne(r => r.Quiz)
+                .WithMany()
+                .HasForeignKey(r => r.QuizId)
+                .OnDelete(DeleteBehavior.NoAction);
         }
     }
 }

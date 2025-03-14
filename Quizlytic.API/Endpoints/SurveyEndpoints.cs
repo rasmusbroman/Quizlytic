@@ -76,7 +76,8 @@ namespace Quizlytic.API.Endpoints
                         QuestionId = answer.QuestionId,
                         AnswerId = answer.AnswerId,
                         ParticipantId = participant.Id,
-                        FreeTextResponse = answer.FreeTextResponse
+                        FreeTextResponse = answer.FreeTextResponse ?? string.Empty,
+                        QuizId = quiz.Id
                     };
 
                     db.Responses.Add(newResponse);

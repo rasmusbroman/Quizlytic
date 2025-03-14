@@ -671,6 +671,7 @@ export const useQuizParticipant = () => {
     type: number;
     answers: { id: number; text: string }[];
   } | null>(null);
+  const [hasAnswered, setHasAnswered] = useState(false);
   const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
   const [currentSurveyQuestionIndex, setCurrentSurveyQuestionIndex] =
     useState(0);
@@ -706,18 +707,28 @@ export const useQuizParticipant = () => {
         id: number,
         text: string,
         imageUrl: string,
-        type: string,
+        type: number,
         answers: any[]
       ) => {
+        console.log(`New question started: ${id}, ${text}`);
         setCurrentQuestion({ id, text, imageUrl, type, answers });
         setResults(null);
+        setHasAnswered(false);
+        setSelectedAnswer(null);
+        setSelectedAnswers([]);
+        setFreeTextAnswer("");
       }
     );
 
     const removeQuestionEnded = onEvent(
       "QuestionEnded",
-      (questionId: number, results: any) => {
-        setResults(results);
+      (questionId: number, questionResults: any) => {
+        if (currentQuestion?.id === questionId) {
+          setResults({
+            questionId,
+            results: questionResults,
+          });
+        }
       }
     );
 
@@ -893,5 +904,7 @@ export const useQuizParticipant = () => {
     nextSurveyQuestion,
     previousSurveyQuestion,
     surveyResponses,
+    hasAnswered,
+    setHasAnswered,
   };
 };

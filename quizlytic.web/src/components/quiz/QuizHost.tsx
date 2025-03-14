@@ -32,6 +32,9 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
   const [questionResults, setQuestionResults] = useState<Record<number, any[]>>(
     {}
   );
+  const [participantResponses, setParticipantResponses] = useState<
+    Record<number, Set<number>>
+  >({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<
     number | null
   >(null);
@@ -171,6 +174,14 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
       console.log(
         `New response from participant ${participantId} for question ${questionId}`
       );
+      setParticipantResponses((prev) => {
+        const updatedResponses = { ...prev };
+        if (!updatedResponses[questionId]) {
+          updatedResponses[questionId] = new Set<number>();
+        }
+        updatedResponses[questionId].add(participantId);
+        return updatedResponses;
+      });
     };
 
     if (connection) {
@@ -219,6 +230,7 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
     if (!quiz || !quiz.questions[index]) return;
 
     setCurrentQuestionIndex(index);
+    setParticipantResponses({});
     startQuestion(quiz.questions[index].id);
   };
 
@@ -242,9 +254,14 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
 
   const handleJoinQuiz = (e: React.FormEvent) => {
     e.preventDefault();
-    if (quiz && participantName.trim()) {
+    if (quiz) {
+      const effectiveName =
+        quiz.allowAnonymous && participantName.trim() === ""
+          ? "Anonymous"
+          : participantName;
+
       router.push(
-        `/join?pin=${quiz.pinCode}&name=${encodeURIComponent(participantName)}`
+        `/join?pin=${quiz.pinCode}&name=${encodeURIComponent(effectiveName)}`
       );
     }
   };
@@ -451,12 +468,18 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
                       </div>
                       <div>
                         {activeQuestion === question.id ? (
-                          <button
-                            className="bg-secondary text-white py-1 px-3 rounded-md hover:bg-secondary-hover transition text-sm"
-                            onClick={handleEndQuestion}
-                          >
-                            End Question
-                          </button>
+                          <div className="flex flex-col items-end">
+                            <button
+                              className="bg-secondary text-white py-1 px-3 rounded-md hover:bg-secondary-hover transition text-sm"
+                              onClick={handleEndQuestion}
+                            >
+                              End Question
+                            </button>
+                            <div className="text-sm mt-2 text-green-600 font-medium">
+                              {participantResponses[question.id]?.size || 0} of{" "}
+                              {participants.length} answered
+                            </div>
+                          </div>
                         ) : (
                           <button
                             className="bg-primary text-white py-1 px-3 rounded-md hover:bg-primary-hover transition text-sm"
@@ -705,19 +728,30 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
                       </label>
                       <input
                         type="text"
-                        placeholder="Enter your name"
+                        placeholder={
+                          quiz.allowAnonymous
+                            ? "Enter your name (optional)"
+                            : "Enter your name"
+                        }
                         className="w-full border border-border rounded-md px-3 py-2"
                         value={participantName}
                         onChange={(e) => setParticipantName(e.target.value)}
                         required={!quiz.allowAnonymous}
                       />
+                      {quiz.allowAnonymous && participantName === "" && (
+                        <p className="text-sm text-text-secondary mt-1">
+                          You will join as "Anonymous" if you leave this empty
+                        </p>
+                      )}
                     </div>
                     <div className="flex space-x-3">
                       <button
                         type="submit"
                         className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
                       >
-                        Take Survey Now
+                        {quiz.mode === QuizMode.SelfPaced
+                          ? "Take Survey Now"
+                          : "Join Quiz"}
                       </button>
                       <button
                         type="button"
@@ -733,7 +767,9 @@ const QuizHost: React.FC<QuizHostProps> = ({ quizId, isAdminView = false }) => {
                     onClick={() => setShowJoinForm(true)}
                     className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition"
                   >
-                    Take This Survey
+                    {quiz.mode === QuizMode.SelfPaced
+                      ? "Take This Survey"
+                      : "Join This Quiz"}
                   </button>
                 )}
               </>

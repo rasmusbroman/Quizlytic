@@ -36,6 +36,15 @@ namespace Quizlytic.API.Hubs
         {
             var quiz = await _context.Quizzes.FirstOrDefaultAsync(q => q.PinCode == pinCode);
 
+            if (string.IsNullOrWhiteSpace(participantName) && !quiz.AllowAnonymous)
+            {
+                await Clients.Caller.SendAsync("JoinError", "Name is required for this quiz");
+                return;
+            }
+
+            string effectiveName = string.IsNullOrWhiteSpace(participantName) ?
+                "Anonymous" : participantName;
+
             if (quiz == null)
             {
                 await Clients.Caller.SendAsync("JoinError", "Quiz not found");
@@ -60,9 +69,6 @@ namespace Quizlytic.API.Hubs
                 await Clients.Caller.SendAsync("JoinError", "Name is required for this quiz");
                 return;
             }
-
-            string effectiveName = string.IsNullOrWhiteSpace(participantName) ?
-                "Anonymous" : participantName;
 
             Participant participant;
             var existingParticipant = await _context.Participants
@@ -165,7 +171,8 @@ namespace Quizlytic.API.Hubs
                         AnswerId = answerId,
                         ParticipantId = participant.Id,
                         FreeTextResponse = safeTextResponse,
-                        SubmittedAt = DateTime.UtcNow
+                        SubmittedAt = DateTime.UtcNow,
+                        QuizId = quiz.Id
                     };
                     _context.Responses.Add(response);
                 }

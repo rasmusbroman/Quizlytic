@@ -10,6 +10,7 @@ import {
   IoPlayCircle,
   IoShareSocial,
   IoStop,
+  IoStatsChart,
 } from "react-icons/io5";
 import { useAuth } from "@/hooks/useAuth";
 import { quizApi } from "@/lib/api-client";
@@ -339,6 +340,16 @@ const QuizManagement: React.FC<QuizManagementProps> = ({ quizId }) => {
                   End Quiz
                 </button>
               )}
+              {quiz.status === QuizStatus.Completed && (
+                <button
+                  onClick={() => router.push(`/admin/${quiz.id}/results`)}
+                  className="flex items-center bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition"
+                >
+                  <IoStatsChart className="h-5 w-5 mr-1" />
+                  View Detailed Results
+                </button>
+              )}
+
               <button
                 onClick={handleDeleteQuiz}
                 className="flex items-center bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition"
