@@ -1,12 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Quiz, QuizStatus } from "@/lib/types";
 import { quizApi } from "@/lib/api-client";
-
-export type SortOption = {
-  label: string;
-  value: string;
-  sortFn: (a: Quiz, b: Quiz) => number;
-};
+import { SortOption } from "@/components/ui/SortDropdown";
 
 export const useQuizList = () => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);

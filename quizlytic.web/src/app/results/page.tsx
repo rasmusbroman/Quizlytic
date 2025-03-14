@@ -7,6 +7,7 @@ import { Quiz, QuizStatus } from "@/lib/types";
 import DateDisplay from "@/components/DateDisplay";
 import { IoArrowBack } from "react-icons/io5";
 import SearchInput from "@/components/ui/SearchInput";
+import SortDropdown, { SortOption } from "@/components/ui/SortDropdown";
 
 export default function ResultsListPage() {
   const router = useRouter();
@@ -14,6 +15,38 @@ export default function ResultsListPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentSort, setCurrentSort] = useState("date-desc");
+
+  const sortOptions: SortOption[] = [
+    {
+      label: "Title (A-Z)",
+      value: "title-asc",
+      sortFn: (a: Quiz, b: Quiz) => a.title.localeCompare(b.title),
+    },
+    {
+      label: "Title (Z-A)",
+      value: "title-desc",
+      sortFn: (a: Quiz, b: Quiz) => b.title.localeCompare(a.title),
+    },
+    {
+      label: "Newest first",
+      value: "date-desc",
+      sortFn: (a: Quiz, b: Quiz) => {
+        const dateA = a.endedAt ? new Date(a.endedAt) : new Date(a.createdAt);
+        const dateB = b.endedAt ? new Date(b.endedAt) : new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+      },
+    },
+    {
+      label: "Oldest first",
+      value: "date-asc",
+      sortFn: (a: Quiz, b: Quiz) => {
+        const dateA = a.endedAt ? new Date(a.endedAt) : new Date(a.createdAt);
+        const dateB = b.endedAt ? new Date(b.endedAt) : new Date(b.createdAt);
+        return dateA.getTime() - dateB.getTime();
+      },
+    },
+  ];
 
   useEffect(() => {
     const loadQuizzes = async () => {
@@ -34,9 +67,16 @@ export default function ResultsListPage() {
     loadQuizzes();
   }, []);
 
-  const filteredQuizzes = quizzes.filter((quiz) =>
-    quiz.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredQuizzes = quizzes
+    .filter((quiz) =>
+      quiz.title.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      const sortOption = sortOptions.find(
+        (option) => option.value === currentSort
+      );
+      return sortOption?.sortFn ? sortOption.sortFn(a, b) : 0;
+    });
 
   const handleQuizClick = (id: number) => {
     router.push(`/quiz/${id}/results`);
@@ -64,13 +104,23 @@ export default function ResultsListPage() {
             <span className="hidden sm:inline">Back</span>
           </button>
         </div>
-
         <div className="mb-6">
-          <SearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search completed quizzes..."
-          />
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="flex-1 w-full">
+              <SearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search completed quizzes..."
+              />
+            </div>
+            <div className="self-end">
+              <SortDropdown
+                sortOptions={sortOptions}
+                currentSort={currentSort}
+                onSelectSort={setCurrentSort}
+              />
+            </div>
+          </div>
         </div>
 
         {isLoading ? (

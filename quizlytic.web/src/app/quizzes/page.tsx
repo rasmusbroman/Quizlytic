@@ -5,7 +5,7 @@ import { IoArrowBack } from "react-icons/io5";
 import { useQuizList } from "./hooks/useQuizList";
 import SearchInput from "@/components/ui/SearchInput";
 import QuizFilters from "./components/QuizFilters";
-import SortDropdown from "./components/SortDropdown";
+import SortDropdown from "@/components/ui/SortDropdown";
 import QuizItem from "./components/QuizItem";
 
 export default function QuizzesPage() {
