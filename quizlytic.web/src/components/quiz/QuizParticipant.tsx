@@ -41,6 +41,7 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
     surveyResponses,
     hasAnswered,
     setHasAnswered,
+    submitMultipleAnswers,
   } = useQuizParticipant();
 
   const [isUsingApi, setIsUsingApi] = useState(false);
@@ -85,6 +86,15 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
       </div>
     );
   };
+
+  useEffect(() => {
+    if (currentQuestion) {
+      setHasAnswered(false);
+      setSelectedAnswer(null);
+      setSelectedAnswers([]);
+      setFreeTextAnswer("");
+    }
+  }, [currentQuestion?.id]);
 
   const handleJoinQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,10 +171,14 @@ const QuizParticipant: React.FC<QuizParticipantProps> = ({
         await submitApiSurvey();
       }
     } else {
-      for (const answerId of selectedAnswers) {
-        await submitAnswer(answerId, "");
+      try {
+        for (const answerId of selectedAnswers) {
+          await submitAnswer(answerId, "");
+        }
+        setHasAnswered(true);
+      } catch (error) {
+        console.error("Error submitting multiple choices:", error);
       }
-      setHasAnswered(true);
     }
   };
 

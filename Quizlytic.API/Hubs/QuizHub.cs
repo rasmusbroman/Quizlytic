@@ -43,7 +43,7 @@ namespace Quizlytic.API.Hubs
             }
 
             string effectiveName = string.IsNullOrWhiteSpace(participantName) ?
-                "Anonymous" : participantName;
+                $"Anonymous-{Guid.NewGuid().ToString().Substring(0, 8)}" : participantName;
 
             if (quiz == null)
             {
@@ -71,11 +71,13 @@ namespace Quizlytic.API.Hubs
             }
 
             Participant participant;
+
+            string uniqueParticipantId = $"{effectiveName}-{Guid.NewGuid().ToString().Substring(0, 8)}";
+
             var existingParticipant = await _context.Participants
                 .FirstOrDefaultAsync(p =>
-                    p.QuizId == quiz.Id &&
-                    p.Name == effectiveName &&
-                    p.ConnectionId == null);
+                p.QuizId == quiz.Id &&
+                p.ConnectionId == Context.ConnectionId);
 
             if (existingParticipant != null)
             {
@@ -89,6 +91,7 @@ namespace Quizlytic.API.Hubs
                 {
                     QuizId = quiz.Id,
                     Name = effectiveName,
+                    UniqueName = uniqueParticipantId,
                     ConnectionId = Context.ConnectionId
                 };
                 _context.Participants.Add(participant);
@@ -152,29 +155,77 @@ namespace Quizlytic.API.Hubs
                     return;
                 }
 
-                var existingResponse = await _context.Responses
-                    .FirstOrDefaultAsync(r => r.QuestionId == questionId && r.ParticipantId == participant.Id);
-
                 string safeTextResponse = freeTextAnswer ?? string.Empty;
 
-                if (existingResponse != null)
+                if (question.Type == QuestionType.MultipleChoice && answerId.HasValue)
                 {
-                    existingResponse.AnswerId = answerId;
-                    existingResponse.FreeTextResponse = safeTextResponse;
-                    _context.Responses.Update(existingResponse);
+                    var existingResponse = await _context.Responses
+                        .FirstOrDefaultAsync(r =>
+                            r.QuestionId == questionId &&
+                            r.ParticipantId == participant.Id &&
+                            r.AnswerId == answerId);
+
+                    if (existingResponse == null)
+                    {
+                        var response = new Response
+                        {
+                            QuestionId = questionId,
+                            AnswerId = answerId,
+                            ParticipantId = participant.Id,
+                            FreeTextResponse = string.Empty,
+                            SubmittedAt = DateTime.UtcNow,
+                            QuizId = quiz.Id
+                        };
+                        _context.Responses.Add(response);
+                    }
+                }
+                else if (question.Type == QuestionType.FreeText)
+                {
+                    var existingResponse = await _context.Responses
+                        .FirstOrDefaultAsync(r => r.QuestionId == questionId && r.ParticipantId == participant.Id);
+
+                    if (existingResponse != null)
+                    {
+                        existingResponse.FreeTextResponse = safeTextResponse;
+                        existingResponse.SubmittedAt = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        var response = new Response
+                        {
+                            QuestionId = questionId,
+                            AnswerId = null,
+                            ParticipantId = participant.Id,
+                            FreeTextResponse = safeTextResponse,
+                            SubmittedAt = DateTime.UtcNow,
+                            QuizId = quiz.Id
+                        };
+                        _context.Responses.Add(response);
+                    }
                 }
                 else
                 {
-                    var response = new Response
+                    var existingResponse = await _context.Responses
+                        .FirstOrDefaultAsync(r => r.QuestionId == questionId && r.ParticipantId == participant.Id);
+
+                    if (existingResponse != null)
                     {
-                        QuestionId = questionId,
-                        AnswerId = answerId,
-                        ParticipantId = participant.Id,
-                        FreeTextResponse = safeTextResponse,
-                        SubmittedAt = DateTime.UtcNow,
-                        QuizId = quiz.Id
-                    };
-                    _context.Responses.Add(response);
+                        existingResponse.AnswerId = answerId;
+                        existingResponse.SubmittedAt = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        var response = new Response
+                        {
+                            QuestionId = questionId,
+                            AnswerId = answerId,
+                            ParticipantId = participant.Id,
+                            FreeTextResponse = string.Empty,
+                            SubmittedAt = DateTime.UtcNow,
+                            QuizId = quiz.Id
+                        };
+                        _context.Responses.Add(response);
+                    }
                 }
 
                 await _context.SaveChangesAsync();

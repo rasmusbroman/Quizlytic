@@ -57,7 +57,7 @@ namespace Quizlytic.API.Endpoints
                 }
 
                 string effectiveName = string.IsNullOrWhiteSpace(response.ParticipantName) ?
-                    "Anonymous" : response.ParticipantName;
+                    $"Anonymous-{Guid.NewGuid().ToString().Substring(0, 8)}" : response.ParticipantName;
 
                 var participant = new Participant
                 {
