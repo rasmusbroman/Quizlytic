@@ -748,10 +748,15 @@ export const useQuizParticipant = () => {
     const removeResponseSaved = onEvent(
       "ResponseSaved",
       (questionId: number) => {
-        if (surveyQuestions.length > currentSurveyQuestionIndex + 1) {
-          setCurrentSurveyQuestionIndex((prev) => prev + 1);
-        } else {
-          setResults({ surveyCompleted: true });
+        const currentQuestionId =
+          surveyQuestions[currentSurveyQuestionIndex]?.id;
+
+        if (currentQuestionId === questionId) {
+          if (surveyQuestions.length > currentSurveyQuestionIndex + 1) {
+            setCurrentSurveyQuestionIndex((prev) => prev + 1);
+          } else {
+            setResults({ surveyCompleted: true });
+          }
         }
       }
     );
@@ -823,8 +828,10 @@ export const useQuizParticipant = () => {
         freeTextAnswer,
       });
 
+      let result = false;
+
       if (currentQuestion) {
-        return await submitAnswerBase(
+        result = await submitAnswerBase(
           currentQuestion.id,
           answerId,
           freeTextAnswer || null
@@ -836,10 +843,22 @@ export const useQuizParticipant = () => {
         if (currentSurveyQuestion) {
           setSurveyResponses((prev) => {
             const newMap = new Map(prev);
-            newMap.set(currentSurveyQuestion.id, {
-              answerId: answerId || undefined,
-              freeText: freeTextAnswer,
-            });
+
+            if (currentSurveyQuestion.type === 1) {
+              const existing = newMap.get(currentSurveyQuestion.id) || {};
+              const existingIds = existing.answerIds || [];
+              if (answerId) {
+                newMap.set(currentSurveyQuestion.id, {
+                  ...existing,
+                  answerIds: [...existingIds, answerId],
+                });
+              }
+            } else {
+              newMap.set(currentSurveyQuestion.id, {
+                answerId: answerId || undefined,
+                freeText: freeTextAnswer,
+              });
+            }
             return newMap;
           });
 
@@ -847,16 +866,14 @@ export const useQuizParticipant = () => {
             "Submitting survey answer for question:",
             currentSurveyQuestion.id
           );
-          const result = await submitAnswerBase(
+          result = await submitAnswerBase(
             currentSurveyQuestion.id,
             answerId,
             freeTextAnswer || null
           );
-
-          return result;
         }
       }
-      return false;
+      return result;
     } catch (error) {
       console.error("Error submitting answer:", error);
       setError("Failed to submit answer. Please try again.");
@@ -883,6 +900,44 @@ export const useQuizParticipant = () => {
     return null;
   };
 
+  const submitMultipleAnswers = async (
+    answerId: number[],
+    freeTextAnswer?: string
+  ) => {
+    if (!isConnected) {
+      setError("Not connected to server. Please reconnect.");
+      return false;
+    }
+
+    try {
+      if (
+        !currentQuestion &&
+        (!surveyQuestions || surveyQuestions.length === 0)
+      ) {
+        console.error("No active question to submit answers for");
+        return false;
+      }
+
+      const questionId =
+        currentQuestion?.id || surveyQuestions[currentSurveyQuestionIndex]?.id;
+      console.log(
+        `Submitting multiple answers for question ${questionId}:`,
+        answerId
+      );
+
+      const promises = answerId.map((id) =>
+        submitAnswerBase(questionId, id, "")
+      );
+
+      await Promise.all(promises);
+      return true;
+    } catch (error) {
+      console.error("Error submitting multiple answers:", error);
+      setError("Failed to submit answers. Please try again.");
+      return false;
+    }
+  };
+
   return {
     quizInfo,
     currentQuestion,
@@ -903,5 +958,7 @@ export const useQuizParticipant = () => {
     surveyResponses,
     hasAnswered,
     setHasAnswered,
+    connection,
+    submitMultipleAnswers,
   };
 };
