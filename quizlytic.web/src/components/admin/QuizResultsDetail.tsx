@@ -229,6 +229,29 @@ const QuizResultsDetail: React.FC<QuizResultsDetailProps> = ({ quizId }) => {
     });
   };
 
+  const countUngradedFreeTextResponses = (participantId: number) => {
+    if (!results || !results.questions || !results.responses) return 0;
+
+    const freeTextQuestions = results.questions.filter(
+      (q) => q.questionType === QuestionType.FreeText
+    );
+    let pendingCount = 0;
+    for (const question of freeTextQuestions) {
+      const response = results.responses.find(
+        (r) =>
+          r.questionId === question.questionId &&
+          r.participantId === participantId &&
+          r.freeTextResponse &&
+          r.freeTextResponse.trim() !== ""
+      );
+
+      if (response && response.isManuallyMarkedCorrect === null) {
+        pendingCount++;
+      }
+    }
+    return pendingCount;
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -478,7 +501,14 @@ const QuizResultsDetail: React.FC<QuizResultsDetailProps> = ({ quizId }) => {
                       </thead>
                       <tbody className="divide-y divide-border">
                         {participantScores.map((participant) => (
-                          <tr key={participant.id}>
+                          <tr
+                            key={participant.id}
+                            className={
+                              countUngradedFreeTextResponses(participant.id) > 0
+                                ? "bg-amber-50"
+                                : ""
+                            }
+                          >
                             <td className="px-4 py-2 whitespace-nowrap">
                               {participant.name}
                             </td>
@@ -486,6 +516,18 @@ const QuizResultsDetail: React.FC<QuizResultsDetailProps> = ({ quizId }) => {
                               <>
                                 <td className="px-4 py-2 whitespace-nowrap">
                                   {participant.score}
+                                  {quiz.hasCorrectAnswers &&
+                                    (() => {
+                                      const pendingCount =
+                                        countUngradedFreeTextResponses(
+                                          participant.id
+                                        );
+                                      return pendingCount > 0 ? (
+                                        <span className="ml-1 text-amber-600 font-medium">
+                                          ({pendingCount} pending)
+                                        </span>
+                                      ) : null;
+                                    })()}
                                 </td>
                                 <td className="px-4 py-2 whitespace-nowrap">
                                   <div className="flex items-center">
