@@ -149,7 +149,14 @@ namespace Quizlytic.API.Endpoints
                     EndedAt = quiz.EndedAt,
                     ParticipantsCount = participants.Count,
                     Questions = questionResults,
-                    Participants = participants.Select(p => new { p.Id, p.Name }).ToList()
+                    Participants = participants.Select(p => new { p.Id, p.Name }).ToList(),
+                    Responses = responses.Select(r => new
+                    {
+                        r.QuestionId,
+                        r.ParticipantId,
+                        r.AnswerId,
+                        r.FreeTextResponse
+                    }).ToList()
                 };
                 return Results.Ok(result);
             });
