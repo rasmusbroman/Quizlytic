@@ -108,15 +108,16 @@ namespace Quizlytic.API.Endpoints
                     }
 
                     var freeTextResponses = question.Type == QuestionType.FreeText
-                ? questionResponses
+                    ? questionResponses
                     .Where(r => !string.IsNullOrEmpty(r.FreeTextResponse))
                     .Select(r => new
                     {
                         ParticipantId = r.ParticipantId,
                         ParticipantName = r.Participant.Name,
-                        Response = r.FreeTextResponse
+                        Response = r.FreeTextResponse,
+                        IsManuallyMarkedCorrect = r.IsManuallyMarkedCorrect
                     }).Cast<object>().ToList()
-                : new List<object>();
+                    : new List<object>();
 
                     var uniqueParticipantCount = questionResponses
                         .Select(r => r.ParticipantId)
@@ -149,9 +150,42 @@ namespace Quizlytic.API.Endpoints
                     EndedAt = quiz.EndedAt,
                     ParticipantsCount = participants.Count,
                     Questions = questionResults,
-                    Participants = participants.Select(p => new { p.Id, p.Name }).ToList()
+                    Participants = participants.Select(p => new { p.Id, p.Name }).ToList(),
+                    Responses = responses.Select(r => new
+                    {
+                        r.Id,
+                        r.QuestionId,
+                        r.ParticipantId,
+                        r.AnswerId,
+                        r.FreeTextResponse,
+                        r.IsManuallyMarkedCorrect
+                    }).ToList()
                 };
                 return Results.Ok(result);
+            });
+
+            resultsEndpoints.MapPost("/response/{responseId}/grade", async (int responseId, bool isCorrect, QuizlyticDbContext db) =>
+            {
+                var response = await db.Responses.FindAsync(responseId);
+                if (response == null)
+                {
+                    return Results.NotFound("Response not found");
+                }
+
+                var question = await db.Questions.FindAsync(response.QuestionId);
+                if (question == null)
+                {
+                    return Results.NotFound("Question not found");
+                }
+
+                if (question.Type != QuestionType.FreeText)
+                {
+                    return Results.BadRequest("Only free text responses can be manually graded");
+                }
+
+                response.IsManuallyMarkedCorrect = isCorrect;
+                await db.SaveChangesAsync();
+                return Results.Ok(new { Success = true, ResponseId = responseId, IsCorrect = isCorrect });
             });
         }
     }

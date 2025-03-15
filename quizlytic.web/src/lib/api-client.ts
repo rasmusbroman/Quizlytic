@@ -177,6 +177,19 @@ export const resultApi = {
     return fetchJson<any>(`${API_URL}/api/results/quiz/${quizId}`);
   },
 
+  gradeTextResponse: async (
+    responseId: number,
+    isCorrect: boolean
+  ): Promise<any> => {
+    return fetchJson<any>(
+      `${API_URL}/api/results/response/${responseId}/grade?isCorrect=${isCorrect}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  },
+
   exportPdf: async (quizId: number): Promise<Blob> => {
     const response = await fetch(
       `${API_URL}/api/results/quiz/${quizId}/export`

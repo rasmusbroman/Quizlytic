@@ -20,6 +20,8 @@ export default {
         'secondary-hover': 'var(--secondary-hover)',
         'text-primary': 'var(--text-primary)',
         'text-secondary': 'var(--text-secondary)',
+        'pending': 'var(--pending)',
+        'pending-text': 'var(--pending-text)',
       },
     },
   },
