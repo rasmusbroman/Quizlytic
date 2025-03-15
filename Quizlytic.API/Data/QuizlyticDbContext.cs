@@ -71,7 +71,7 @@ namespace Quizlytic.API.Data
                 .HasOne(r => r.Quiz)
                 .WithMany()
                 .HasForeignKey(r => r.QuizId)
-                .OnDelete(DeleteBehavior.NoAction);
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
