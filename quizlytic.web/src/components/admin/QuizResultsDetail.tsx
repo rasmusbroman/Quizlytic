@@ -67,53 +67,67 @@ const QuizResultsDetail: React.FC<QuizResultsDetailProps> = ({ quizId }) => {
       let totalAnswerable = 0;
       const answeredQuestions = new Set();
       results.questions.forEach((question) => {
-        if (question.questionType === QuestionType.FreeText) return;
-
         totalAnswerable++;
 
-        const participantAnswers = [];
+        if (question.questionType !== QuestionType.FreeText) {
+          const participantAnswers = [];
 
-        question.answerDistribution.forEach((answer) => {
-          const responses =
-            results.responses?.filter(
-              (r) =>
-                r.questionId === question.questionId &&
-                r.participantId === participant.id &&
-                r.answerId === answer.answerId
-            ) || [];
+          question.answerDistribution.forEach((answer) => {
+            const responses =
+              results.responses?.filter(
+                (r) =>
+                  r.questionId === question.questionId &&
+                  r.participantId === participant.id &&
+                  r.answerId === answer.answerId
+              ) || [];
 
-          if (responses.length > 0) {
-            participantAnswers.push(answer);
-            answeredQuestions.add(question.questionId);
-          }
-        });
+            if (responses.length > 0) {
+              participantAnswers.push(answer);
+              answeredQuestions.add(question.questionId);
+            }
+          });
 
-        if (question.questionType === QuestionType.SingleChoice) {
-          if (
-            participantAnswers.length === 1 &&
-            participantAnswers[0].isCorrect
-          ) {
-            correctAnswers++;
-          }
-        } else if (question.questionType === QuestionType.MultipleChoice) {
-          const allCorrectSelected = question.answerDistribution
-            .filter((a) => a.isCorrect)
-            .every((correctAns) =>
-              participantAnswers.some(
-                (pa) => pa.answerId === correctAns.answerId
-              )
+          if (question.questionType === QuestionType.SingleChoice) {
+            if (
+              participantAnswers.length === 1 &&
+              participantAnswers[0].isCorrect
+            ) {
+              correctAnswers++;
+            }
+          } else if (question.questionType === QuestionType.MultipleChoice) {
+            const allCorrectSelected = question.answerDistribution
+              .filter((a) => a.isCorrect)
+              .every((correctAns) =>
+                participantAnswers.some(
+                  (pa) => pa.answerId === correctAns.answerId
+                )
+              );
+
+            const noIncorrectSelected = participantAnswers.every(
+              (pa) => pa.isCorrect
             );
 
-          const noIncorrectSelected = participantAnswers.every(
-            (pa) => pa.isCorrect
+            if (
+              allCorrectSelected &&
+              noIncorrectSelected &&
+              participantAnswers.length > 0
+            ) {
+              correctAnswers++;
+            }
+          }
+        } else {
+          const freeTextResponse = results.responses?.find(
+            (r) =>
+              r.questionId === question.questionId &&
+              r.participantId === participant.id &&
+              r.freeTextResponse
           );
 
-          if (
-            allCorrectSelected &&
-            noIncorrectSelected &&
-            participantAnswers.length > 0
-          ) {
-            correctAnswers++;
+          if (freeTextResponse) {
+            answeredQuestions.add(question.questionId);
+            if (freeTextResponse.isManuallyMarkedCorrect === true) {
+              correctAnswers++;
+            }
           }
         }
       });
@@ -158,12 +172,21 @@ const QuizResultsDetail: React.FC<QuizResultsDetailProps> = ({ quizId }) => {
       });
 
       let freeTextResponse = null;
+      let freeTextResponseId = null;
+      let isManuallyMarkedCorrect = null;
+
       if (question.questionType === QuestionType.FreeText) {
-        const response = question.freeTextResponses?.find(
-          (r) => r.participantId === participantId
+        const response = results.responses?.find(
+          (r) =>
+            r.questionId === question.questionId &&
+            r.participantId === participantId &&
+            r.freeTextResponse
         );
+
         if (response) {
-          freeTextResponse = response.response;
+          freeTextResponse = response.freeTextResponse;
+          freeTextResponseId = response.id;
+          isManuallyMarkedCorrect = response.isManuallyMarkedCorrect;
         }
       }
 
@@ -189,6 +212,8 @@ const QuizResultsDetail: React.FC<QuizResultsDetailProps> = ({ quizId }) => {
             allCorrectSelected &&
             noIncorrectSelected &&
             participantAnswers.length > 0;
+        } else if (question.questionType === QuestionType.FreeText) {
+          isCorrect = isManuallyMarkedCorrect;
         }
       }
 
@@ -196,6 +221,8 @@ const QuizResultsDetail: React.FC<QuizResultsDetailProps> = ({ quizId }) => {
         ...question,
         participantAnswers,
         freeTextResponse,
+        freeTextResponseId,
+        isManuallyMarkedCorrect,
         isCorrect,
         answered: participantAnswers.length > 0 || freeTextResponse !== null,
       };
@@ -580,7 +607,7 @@ const QuizResultsDetail: React.FC<QuizResultsDetailProps> = ({ quizId }) => {
                                   Free Text Response:
                                 </p>
                                 {questionData.freeTextResponse ? (
-                                  <div className="bg-white p-3 rounded border border-border">
+                                  <div className="bg-white p-3 rounded border border-border mb-2">
                                     {questionData.freeTextResponse}
                                   </div>
                                 ) : (
@@ -588,6 +615,79 @@ const QuizResultsDetail: React.FC<QuizResultsDetailProps> = ({ quizId }) => {
                                     No response provided
                                   </p>
                                 )}
+
+                                {quiz.hasCorrectAnswers &&
+                                  questionData.freeTextResponse && (
+                                    <div className="mt-3 border-t border-gray-200 pt-3">
+                                      <p className="font-medium mb-2">
+                                        Grade answer:
+                                      </p>
+                                      <div className="flex space-x-3">
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              await resultApi.gradeTextResponse(
+                                                questionData.freeTextResponseId,
+                                                true
+                                              );
+                                              const resultsData =
+                                                await resultApi.getByQuizId(
+                                                  quizId
+                                                );
+                                              setResults(resultsData);
+                                            } catch (err) {
+                                              console.error(
+                                                "Error grading response:",
+                                                err
+                                              );
+                                              setError(
+                                                "Failed to grade response"
+                                              );
+                                            }
+                                          }}
+                                          className={`px-3 py-1 rounded ${
+                                            questionData.isManuallyMarkedCorrect ===
+                                            true
+                                              ? "bg-green-600 text-white"
+                                              : "bg-gray-100 text-gray-800 hover:bg-green-100"
+                                          }`}
+                                        >
+                                          Correct
+                                        </button>
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              await resultApi.gradeTextResponse(
+                                                questionData.freeTextResponseId,
+                                                false
+                                              );
+                                              const resultsData =
+                                                await resultApi.getByQuizId(
+                                                  quizId
+                                                );
+                                              setResults(resultsData);
+                                            } catch (err) {
+                                              console.error(
+                                                "Error grading response:",
+                                                err
+                                              );
+                                              setError(
+                                                "Failed to grade response"
+                                              );
+                                            }
+                                          }}
+                                          className={`px-3 py-1 rounded ${
+                                            questionData.isManuallyMarkedCorrect ===
+                                            false
+                                              ? "bg-red-600 text-white"
+                                              : "bg-gray-100 text-gray-800 hover:bg-red-100"
+                                          }`}
+                                        >
+                                          Incorrect
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
                               </>
                             ) : (
                               <>
