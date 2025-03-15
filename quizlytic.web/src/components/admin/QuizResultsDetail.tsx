@@ -505,7 +505,7 @@ const QuizResultsDetail: React.FC<QuizResultsDetailProps> = ({ quizId }) => {
                             key={participant.id}
                             className={
                               countUngradedFreeTextResponses(participant.id) > 0
-                                ? "bg-amber-50"
+                                ? "bg-pending"
                                 : ""
                             }
                           >
@@ -523,7 +523,7 @@ const QuizResultsDetail: React.FC<QuizResultsDetailProps> = ({ quizId }) => {
                                           participant.id
                                         );
                                       return pendingCount > 0 ? (
-                                        <span className="ml-1 text-amber-600 font-medium">
+                                        <span className="ml-1 text-pending-text font-medium">
                                           ({pendingCount} pending)
                                         </span>
                                       ) : null;

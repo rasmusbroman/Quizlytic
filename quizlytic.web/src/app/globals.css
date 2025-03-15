@@ -15,7 +15,8 @@
   --secondary-hover: #4A864A;
   --text-primary: #171717;
   --text-secondary: #4B5563;
- 
+  --pending: #FEF3C7;
+  --pending-text: #92400E;
 
   /* ORANGE THEME */
   /* --background: #FFF7F0;
@@ -28,7 +29,9 @@
   --primary-hover: #FF8642;
   --secondary-hover: #FFA266;
   --text-primary: #333333;
-  --text-secondary: #666666; */
+  --text-secondary: #666666; 
+  --pending: #FEF3C7;
+  --pending-text: #92400E; */
 }
 
 @media (prefers-color-scheme: dark) {

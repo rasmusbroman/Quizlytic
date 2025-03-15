@@ -108,15 +108,16 @@ namespace Quizlytic.API.Endpoints
                     }
 
                     var freeTextResponses = question.Type == QuestionType.FreeText
-                ? questionResponses
+                    ? questionResponses
                     .Where(r => !string.IsNullOrEmpty(r.FreeTextResponse))
                     .Select(r => new
                     {
                         ParticipantId = r.ParticipantId,
                         ParticipantName = r.Participant.Name,
-                        Response = r.FreeTextResponse
+                        Response = r.FreeTextResponse,
+                        IsManuallyMarkedCorrect = r.IsManuallyMarkedCorrect
                     }).Cast<object>().ToList()
-                : new List<object>();
+                    : new List<object>();
 
                     var uniqueParticipantCount = questionResponses
                         .Select(r => r.ParticipantId)

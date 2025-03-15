@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { quizApi, resultApi } from "@/lib/api-client";
-import { IoArrowBack, IoCheckmarkCircle } from "react-icons/io5";
+import { IoArrowBack, IoCheckmarkCircle, IoCloseCircle } from "react-icons/io5";
 import DateDisplay from "@/components/DateDisplay";
 import { QuizStatus, QuestionType } from "@/lib/types";
 
@@ -211,17 +211,66 @@ export default function QuizResultsPage() {
                     <div className="space-y-2 mt-4">
                       <p className="font-medium">Text Responses:</p>
                       {question.freeTextResponses.map(
-                        (response: any, rIndex: number) => (
-                          <div
-                            key={rIndex}
-                            className="bg-accent p-3 rounded-md"
-                          >
-                            <p className="text-sm font-medium">
-                              {response.participantName}:
-                            </p>
-                            <p>{response.response}</p>
-                          </div>
-                        )
+                        (response: any, rIndex: number) => {
+                          let bgColorClass = "bg-accent";
+                          let borderColorClass = "border-border";
+                          let statusIndicator = null;
+
+                          if (quiz.hasCorrectAnswers) {
+                            const fullResponse = results.responses?.find(
+                              (r) =>
+                                r.questionId === question.questionId &&
+                                r.participantId === response.participantId &&
+                                r.freeTextResponse === response.response
+                            );
+
+                            if (fullResponse) {
+                              if (
+                                fullResponse.isManuallyMarkedCorrect === true
+                              ) {
+                                bgColorClass = "bg-green-100";
+                                borderColorClass = "border-green-300";
+                                statusIndicator = (
+                                  <span className="inline-flex items-center ml-2 text-green-600">
+                                    <IoCheckmarkCircle className="h-4 w-4 mr-1" />
+                                    Correct
+                                  </span>
+                                );
+                              } else if (
+                                fullResponse.isManuallyMarkedCorrect === false
+                              ) {
+                                bgColorClass = "bg-green-800 bg-opacity-20";
+                                borderColorClass = "border-green-700";
+                                statusIndicator = (
+                                  <span className="inline-flex items-center ml-2 text-red-600">
+                                    <IoCloseCircle className="h-4 w-4 mr-1" />
+                                    Incorrect
+                                  </span>
+                                );
+                              } else {
+                                bgColorClass = "bg-pending";
+                                borderColorClass = "border-amber-200";
+                                statusIndicator = (
+                                  <span className="inline-flex items-center ml-2 text-pending-text text-xs">
+                                    (Pending grading)
+                                  </span>
+                                );
+                              }
+                            }
+                          }
+
+                          return (
+                            <div
+                              key={rIndex}
+                              className={`${bgColorClass} p-3 rounded-md border ${borderColorClass}`}
+                            >
+                              <p className="text-sm font-medium flex items-center">
+                                {response.participantName}:{statusIndicator}
+                              </p>
+                              <p>{response.response}</p>
+                            </div>
+                          );
+                        }
                       )}
                     </div>
                   ) : (
