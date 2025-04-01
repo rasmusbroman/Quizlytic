@@ -122,7 +122,7 @@ Customize themes by editing CSS variables in `globals.css`. Default theme is gre
 
 ### Authentication
 
-The demo uses local storage authentication. As per demo use this credentials to log in as administrator to bring up Admin page:
+The demo uses local storage authentication. As per demo use these credentials to log in as administrator to bring up Admin page:
 
 ```bash
 User: admin
