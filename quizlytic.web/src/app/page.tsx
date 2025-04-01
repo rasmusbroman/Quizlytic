@@ -44,14 +44,14 @@ export default function HomePage() {
             onClick={() => router.push("/join")}
             className="w-full bg-primary text-white py-3 px-4 rounded-md hover:bg-primary-hover transition"
           >
-            Join a Quiz
+            Join Quiz
           </button>
 
           <Link
             href="/create"
             className="block w-full bg-secondary text-white py-3 px-4 rounded-md hover:bg-secondary-hover transition text-center"
           >
-            Create a Quiz
+            Create Quiz
           </Link>
           <button
             onClick={() => router.push("/results")}

@@ -38,7 +38,7 @@ export default function AboutModal({ onClose }: AboutModalProps) {
           <div>
             <h3 className="font-medium text-foreground mb-2">Key Features</h3>
             <ul className="list-disc pl-5 space-y-1 text-text-secondary">
-              <li>(Real-time quiz participation - in development)</li>
+              <li>Real-time quiz participation</li>
               <li>Multiple question types</li>
               <li>Instant response visualization</li>
               <li>(Comprehensive results analysis - in development)</li>
